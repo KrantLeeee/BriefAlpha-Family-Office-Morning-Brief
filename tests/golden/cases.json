@@ -1,69 +1,340 @@
 {
-  "version": "2026-04-25.1",
-  "description": "Curated golden cases for BriefAlpha pipeline regression. Each case carries an evidence_pool_full snapshot + expected metrics. Runner in `tests/golden/runner.py` re-runs the pipeline + accuracy_validator against each case and emits a metrics report.",
+  "version": "2026-04-25.2",
+  "description": "Curated golden cases for BriefAlpha pipeline regression. Each case carries an evidence_pool_input snapshot (synthetic RawItem-shaped dicts) + expected metrics. The runner in `tests/golden/runner.py` feeds the pool into the 9 pipeline stages, calls Stage A/B/C via the LLM wrapper (stub provider in CI), runs the validator on each LLM response, and emits an aggregate metrics report at `tests/golden/golden_metrics.json`.",
   "cases": [
     {
       "id": "earnings_beat_clean",
       "scenario": "earnings",
       "summary": "NVDA earnings beat reported by 4 sources, all directional alignment.",
       "evidence_count": 4,
-      "expected": { "judgement_count": 1, "polarity": "positive", "conflict": false }
+      "expected": { "judgement_count": 1, "polarity": "positive", "conflict": false },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001045810&type=8-K",
+          "title": "NVDA 8-K: Q4 revenue beat consensus by 5%",
+          "excerpt": "NVIDIA reported revenue of US$22.1B, beating consensus of US$21.0B by 5%. Data center segment revenue rose 18% sequentially. Guidance raised for Q1.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:05:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/technology/nvidia-q4-results",
+          "title": "Nvidia beats forecasts, raises guidance",
+          "excerpt": "Reuters: Nvidia beat Q4 expectations and raised forward guidance, citing strong AI infrastructure demand. Shares up 6% afterhours.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:31:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/nvda-q4-beat",
+          "title": "Nvidia beat: data-center revenue up 18%",
+          "excerpt": "Bloomberg: data center revenue rose 18% sequentially, beating Street estimates. Margins expanded. Q1 outlook raised.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:35:00+00:00",
+          "fetched_at": "2026-04-25T00:32:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/NVDA",
+          "title": "NVDA after-hours +6.0%",
+          "excerpt": "Last 6%; previous close $920. Volume above 30-day average. Sentiment positive on guidance raise.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:33:00+00:00"
+        }
+      ]
     },
     {
       "id": "earnings_miss_with_conflict",
       "scenario": "earnings",
       "summary": "NVDA Q1 guidance cut. Reuters quotes 8%, Bloomberg quotes 10% — flagged conflict.",
       "evidence_count": 4,
-      "expected": { "judgement_count": 1, "conflict": true, "requires_review": true }
+      "expected": { "judgement_count": 1, "conflict": true, "requires_review": true },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001045810&type=8-K",
+          "title": "NVDA 8-K: Q1 guidance cut",
+          "excerpt": "NVIDIA cut Q1 data-center revenue guidance citing supply constraints. Magnitude undisclosed in 8-K.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/technology/nvidia-cuts-q1",
+          "title": "Nvidia cuts Q1 guidance by 8%",
+          "excerpt": "Reuters: Nvidia cut Q1 data-center revenue outlook by 8% versus consensus, citing supply constraints. Shares down afterhours.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:31:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/nvda-q1-warn",
+          "title": "Nvidia trims Q1 outlook ~10%",
+          "excerpt": "Bloomberg: Nvidia trimmed Q1 data-center outlook approximately 10% — magnitude differs from Reuters' 8% read.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:35:00+00:00",
+          "fetched_at": "2026-04-25T00:32:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/NVDA",
+          "title": "NVDA after-hours -6.0%",
+          "excerpt": "Last -6%; previous close $920. Volume well above 30-day average; selling concentrated post-guidance.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:33:00+00:00"
+        }
+      ]
     },
     {
       "id": "policy_day_macro",
       "scenario": "policy",
       "summary": "Williams 'mildly restrictive' speech; rates desk reaction in 3 sources.",
       "evidence_count": 3,
-      "expected": { "judgement_count": 1, "asset_class": "us_treasury" }
+      "expected": { "judgement_count": 1, "asset_class": "us_treasury" },
+      "evidence_pool_input": [
+        {
+          "source_name": "fed_speeches",
+          "source_tier": "official",
+          "source_url": "https://www.newyorkfed.org/newsevents/speeches/2026/wil260424",
+          "title": "Williams: policy 'mildly restrictive'; one more hike on the table",
+          "excerpt": "NY Fed President John Williams said policy is 'mildly restrictive' and a further hike of 25 bps cannot be ruled out if core inflation stalls.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T18:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/williams-mildly-restrictive",
+          "title": "Treasuries sell off after Williams comments",
+          "excerpt": "Reuters: 10-year UST yield rose 6 bps to 4.45%; market pricing one more hike with 38% probability.",
+          "detected_tickers": ["TLT"],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T19:00:00+00:00",
+          "fetched_at": "2026-04-25T00:31:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/TLT",
+          "title": "TLT close -1.2%",
+          "excerpt": "TLT closed -1.2%; long-end UST under pressure on hawkish Williams.",
+          "detected_tickers": ["TLT"],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:32:00+00:00"
+        }
+      ]
     },
     {
       "id": "calm_day_no_priority",
       "scenario": "calm_day",
       "summary": "Light news flow; expected output reverts to base_case + summary only.",
       "evidence_count": 8,
-      "expected": { "judgement_count": 0 }
+      "expected": { "judgement_count": 0 },
+      "evidence_pool_input": [
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/SPY",
+          "title": "SPY +0.10%",
+          "excerpt": "Index flat; volume light; no major sector moves.",
+          "detected_tickers": ["SPY"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/quiet-session",
+          "title": "Wall Street logs quiet session",
+          "excerpt": "Reuters: equities edged higher in a quiet session; no notable single-stock movers.",
+          "detected_tickers": [],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:31:00+00:00"
+        }
+      ]
     },
     {
       "id": "breaking_news_singlesource",
       "scenario": "breaking",
       "summary": "Single-source breaking — should mark requires_review until corroborated.",
       "evidence_count": 1,
-      "expected": { "requires_review": true }
+      "expected": { "requires_review": true },
+      "evidence_pool_input": [
+        {
+          "source_name": "newsapi",
+          "source_tier": "news",
+          "source_url": "https://newsapi.org/breaking/nvda-fab-fire",
+          "title": "Reports of fab fire affecting NVDA supplier",
+          "excerpt": "Single-source report of a fab fire affecting an NVDA supplier; details unconfirmed; awaiting corroboration.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:15:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/NVDA",
+          "title": "NVDA -0.8% afterhours",
+          "excerpt": "Light afterhours move; volume below average.",
+          "detected_tickers": ["NVDA"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:20:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
     },
     {
       "id": "macro_pulse_pce",
       "scenario": "macro",
       "summary": "PCE prints in line; macro_pulse only.",
       "evidence_count": 6,
-      "expected": { "judgement_count": 0 }
+      "expected": { "judgement_count": 0 },
+      "evidence_pool_input": [
+        {
+          "source_name": "bls_release",
+          "source_tier": "official",
+          "source_url": "https://www.bls.gov/news.release/pce.htm",
+          "title": "PCE 2.6% YoY, in line",
+          "excerpt": "Headline PCE rose 2.6% YoY, matching consensus; core PCE 2.7% YoY, in line.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:30:00+00:00",
+          "fetched_at": "2026-04-25T08:35:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/pce-in-line",
+          "title": "PCE in line; markets little changed",
+          "excerpt": "Reuters: PCE in line with expectations; rates and equities little changed post-print.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:45:00+00:00",
+          "fetched_at": "2026-04-25T08:50:00+00:00"
+        }
+      ]
     },
     {
       "id": "hkex_filing_buyback",
       "scenario": "hkex",
       "summary": "Tencent buyback authorization; should pull HKEX 7:30 HKT filing as primary.",
       "evidence_count": 2,
-      "expected": { "judgement_count": 1, "primary_source_tier": "official" }
+      "expected": { "judgement_count": 1, "primary_source_tier": "official" },
+      "evidence_pool_input": [
+        {
+          "source_name": "hkex_filings",
+          "source_tier": "official",
+          "source_url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0425/2026042500201.pdf",
+          "title": "0700.HK: enlargement of share buyback authorisation",
+          "excerpt": "0700.HK announces enlargement of share buyback authorisation by 50%; aggregate value expanded to HK$200B.",
+          "detected_tickers": ["0700.HK"],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-24T23:30:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/asia/tencent-buyback",
+          "title": "Tencent expands buyback authorisation",
+          "excerpt": "Reuters: Tencent enlarged buyback authorisation; supportive for HK internet sector valuation.",
+          "detected_tickers": ["0700.HK"],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-25T00:05:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
     },
     {
       "id": "sec_8k_revenue_warn",
       "scenario": "sec",
       "summary": "Revenue warning 8-K — official tier wins primary slot.",
       "evidence_count": 3,
-      "expected": { "primary_source_tier": "official" }
+      "expected": { "primary_source_tier": "official" },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/0000320193/8-k-revenue-warning",
+          "title": "AAPL 8-K: revenue warning",
+          "excerpt": "AAPL filed an 8-K disclosing a Q3 revenue shortfall vs. internal plan; cites currency and demand softness.",
+          "detected_tickers": ["AAPL"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/technology/aapl-revenue-warning",
+          "title": "Apple warns on Q3 revenue",
+          "excerpt": "Reuters: Apple warned on Q3 revenue, citing currency and softer demand. Shares down afterhours.",
+          "detected_tickers": ["AAPL"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:31:00+00:00"
+        }
+      ]
     },
     {
       "id": "research_pdf_external_ticker",
       "scenario": "research_pdf",
       "summary": "Goldman PDF mentions BIDU (external) — pool ingests with warning, no universe expansion.",
       "evidence_count": 18,
-      "expected": { "external_ticker_warning": true, "auto_expand_universe": false }
+      "expected": { "external_ticker_warning": true, "auto_expand_universe": false },
+      "evidence_pool_input": [
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/goldman_china_internet.pdf#page=4",
+          "title": "Goldman China Internet — BIDU initiation",
+          "excerpt": "Goldman initiates BIDU at Buy with HK$165 target; cross-reads bullish for tencent and Alibaba ecosystems.",
+          "detected_tickers": ["BIDU"],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/goldman_china_internet.pdf#page=5",
+          "title": "Goldman China Internet — sector valuations",
+          "excerpt": "China internet sector trades at 14x forward earnings, modest discount to historical average.",
+          "detected_tickers": [],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        }
+      ]
     }
   ]
 }

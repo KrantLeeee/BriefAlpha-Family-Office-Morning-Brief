@@ -1,0 +1,125 @@
+{
+  "case_count": 9,
+  "citation_locatable_rate": 1.0,
+  "numbers_consistent_rate": 0.6667,
+  "polarity_consistent_rate": 1.0,
+  "time_window_consistent_rate": null,
+  "sensitive_output_pass_rate": 1.0,
+  "unsafe_generated_alias_count": 0,
+  "conservative_brief_triggered_rate": 0.0,
+  "no_direct_portfolio_link_rate": 0.6667,
+  "notes": {
+    "time_window_consistent_rate": "placeholder — full implementation requires the trade-calendar validator (validator/time_window.py) to be wired through call_text_llm's accuracy_validate hook with brief_id-scoped freeze_at; deferred to mainline D.",
+    "stub_provider": "When llm_api_keys.json contains placeholder values, the LLM wrapper returns a deterministic stub response — these metrics exercise the *plumbing* end-to-end but do NOT measure live model quality."
+  },
+  "per_case": [
+    {
+      "case_id": "earnings_beat_clean",
+      "pool_size": 4,
+      "selected_size": 4,
+      "no_direct_portfolio_link": false,
+      "conservative": false,
+      "unsafe_alias_count": 0,
+      "citation_locatable_rate": 1.0,
+      "numbers_consistent_rate": 0.6667,
+      "polarity_consistent_rate": 1.0,
+      "sensitive_output_pass_rate": 1.0
+    },
+    {
+      "case_id": "earnings_miss_with_conflict",
+      "pool_size": 4,
+      "selected_size": 4,
+      "no_direct_portfolio_link": false,
+      "conservative": false,
+      "unsafe_alias_count": 0,
+      "citation_locatable_rate": 1.0,
+      "numbers_consistent_rate": 0.6667,
+      "polarity_consistent_rate": 1.0,
+      "sensitive_output_pass_rate": 1.0
+    },
+    {
+      "case_id": "policy_day_macro",
+      "pool_size": 3,
+      "selected_size": 3,
+      "no_direct_portfolio_link": false,
+      "conservative": false,
+      "unsafe_alias_count": 0,
+      "citation_locatable_rate": 1.0,
+      "numbers_consistent_rate": 0.6667,
+      "polarity_consistent_rate": 1.0,
+      "sensitive_output_pass_rate": 1.0
+    },
+    {
+      "case_id": "calm_day_no_priority",
+      "pool_size": 2,
+      "selected_size": 2,
+      "no_direct_portfolio_link": true,
+      "conservative": false,
+      "unsafe_alias_count": 0,
+      "citation_locatable_rate": 1.0,
+      "numbers_consistent_rate": 0.6667,
+      "polarity_consistent_rate": 1.0,
+      "sensitive_output_pass_rate": 1.0
+    },
+    {
+      "case_id": "breaking_news_singlesource",
+      "pool_size": 2,
+      "selected_size": 2,
+      "no_direct_portfolio_link": true,
+      "conservative": false,
+      "unsafe_alias_count": 0,
+      "citation_locatable_rate": 1.0,
+      "numbers_consistent_rate": 0.6667,
+      "polarity_consistent_rate": 1.0,
+      "sensitive_output_pass_rate": 1.0
+    },
+    {
+      "case_id": "macro_pulse_pce",
+      "pool_size": 2,
+      "selected_size": 2,
+      "no_direct_portfolio_link": true,
+      "conservative": false,
+      "unsafe_alias_count": 0,
+      "citation_locatable_rate": 1.0,
+      "numbers_consistent_rate": 0.6667,
+      "polarity_consistent_rate": 1.0,
+      "sensitive_output_pass_rate": 1.0
+    },
+    {
+      "case_id": "hkex_filing_buyback",
+      "pool_size": 2,
+      "selected_size": 2,
+      "no_direct_portfolio_link": true,
+      "conservative": false,
+      "unsafe_alias_count": 0,
+      "citation_locatable_rate": 1.0,
+      "numbers_consistent_rate": 0.6667,
+      "polarity_consistent_rate": 1.0,
+      "sensitive_output_pass_rate": 1.0
+    },
+    {
+      "case_id": "sec_8k_revenue_warn",
+      "pool_size": 2,
+      "selected_size": 2,
+      "no_direct_portfolio_link": true,
+      "conservative": false,
+      "unsafe_alias_count": 0,
+      "citation_locatable_rate": 1.0,
+      "numbers_consistent_rate": 0.6667,
+      "polarity_consistent_rate": 1.0,
+      "sensitive_output_pass_rate": 1.0
+    },
+    {
+      "case_id": "research_pdf_external_ticker",
+      "pool_size": 2,
+      "selected_size": 2,
+      "no_direct_portfolio_link": true,
+      "conservative": false,
+      "unsafe_alias_count": 0,
+      "citation_locatable_rate": 1.0,
+      "numbers_consistent_rate": 0.6667,
+      "polarity_consistent_rate": 1.0,
+      "sensitive_output_pass_rate": 1.0
+    }
+  ]
+}
