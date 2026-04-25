@@ -33,7 +33,10 @@ class SensitiveScanReport:
 
 
 def scan_input_for_real_tickers(payload: dict, ctx: AliasContext) -> None:
-    body = json.dumps(payload, ensure_ascii=False)
+    # `default=str` so datetimes inside AliasedEvidence (`published_at`) and
+    # other pydantic-dumped types serialize cleanly. We only use `body` for
+    # regex scanning, so str-coercion of nested types is fine.
+    body = json.dumps(payload, ensure_ascii=False, default=str)
     for ticker in ctx.alias_to_ticker.values():
         if re.search(rf"\b{re.escape(ticker)}\b", body):
             raise SensitiveInputViolation(

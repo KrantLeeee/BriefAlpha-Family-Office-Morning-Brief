@@ -1,11 +1,15 @@
 """FastAPI entrypoint."""
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from briefalpha_api.cache import get_brief_cache
 from briefalpha_api.routers import (
     analytics,
     brief,
@@ -17,10 +21,24 @@ from briefalpha_api.routers import (
 )
 from briefalpha_api.secrets_check import verify_secrets
 
+log = logging.getLogger("briefalpha.main")
+HKT = ZoneInfo("Asia/Hong_Kong")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     verify_secrets()
+
+    # Warm-up: if today's brief isn't cached, kick off a background
+    # generation. We DON'T await — the server must accept requests
+    # immediately. The /api/brief/today route returns a stale fixture
+    # until this lands.
+    today = datetime.now(tz=HKT).strftime("%Y-%m-%d")
+    cached = await get_brief_cache(today)
+    if cached is None:
+        log.info("startup warm-up: triggering background brief generation for %s", today)
+        brief._spawn_generation(today)  # noqa: SLF001 — internal helper
+
     yield
 
 
