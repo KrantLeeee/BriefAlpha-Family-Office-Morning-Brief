@@ -1,0 +1,14 @@
+{
+  "_comment": "Ticker (with .HK suffix) -> 5-digit HKEX stock code used in https://www.hkexnews.hk/listedco/listconews/sehk/rss/{code}.xml feeds. Refresh from HKEX listed-company directory if new tickers are added to the universe. Lookup is case-sensitive.",
+  "mappings": {
+    "0700.HK": "00700",
+    "9988.HK": "09988",
+    "3690.HK": "03690",
+    "1810.HK": "01810",
+    "0992.HK": "00992",
+    "0005.HK": "00005",
+    "0388.HK": "00388",
+    "2318.HK": "02318",
+    "2800.HK": "02800"
+  }
+}
