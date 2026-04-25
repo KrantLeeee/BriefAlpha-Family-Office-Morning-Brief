@@ -47,7 +47,6 @@ export function JudgementList({ judgements }: { judgements: Judgement[] }) {
               onClick={() =>
                 openDrawer(j.id, {
                   triggerElementId: `judgement-row-${j.id}`,
-                  highlightEvidenceId: j.evidence[0]?.evidence_id,
                 })
               }
               id={`judgement-row-${j.id}`}

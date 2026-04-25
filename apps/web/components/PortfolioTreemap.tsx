@@ -16,8 +16,10 @@ const COLOR_MAP: Record<string, string> = {
   "treemap.mtn": "bg-treemap-mtn text-ink-900",
 };
 
-const ROW_HEIGHTS: Record<0 | 1, number> = { 0: 152, 1: 126 };
+const ROW0_HEIGHT = 152;
+const ROW1_HEIGHT = 126;
 const TREE_TOTAL_WIDTH = 640;
+const TREE_TOTAL_HEIGHT = ROW0_HEIGHT + ROW1_HEIGHT;
 
 function tileColorClass(token: string): string {
   return COLOR_MAP[token] ?? "bg-ink-300 text-canvas";
@@ -27,22 +29,41 @@ function tileLabel(t: PortfolioTile): string {
   return t.label ?? t.ticker;
 }
 
+/**
+ * Tiles use absolute positioning matching the Pencil canvas exactly:
+ * row 0 sums to 640 (NVDA 209 + 0700 175 + AAPL 140 + MSFT 116) and row 1
+ * sums to 640 (TLT 142 + BABA 114 + GLD 114 + CASH 128 + TSLA 71 + MTN 71).
+ * No inter-tile gap — the canvas has continuous color blocks, and the
+ * outer rounded corners come from the four corner tiles only. This is
+ * what fills the right edge that flex+gap was leaking.
+ */
 function Tile({ tile }: { tile: PortfolioTile }) {
   const isFirstRow = tile.row === 0;
-  const radiusClasses = (() => {
-    if (isFirstRow && tile.col_start === 0) return "rounded-tl-card";
-    if (isFirstRow && tile.col_start + tile.col_span >= TREE_TOTAL_WIDTH) return "rounded-tr-card";
-    if (!isFirstRow && tile.col_start === 0) return "rounded-bl-card";
-    if (!isFirstRow && tile.col_start + tile.col_span >= TREE_TOTAL_WIDTH) return "rounded-br-card";
-    return "";
-  })();
+  const top = isFirstRow ? 0 : ROW0_HEIGHT;
+  const height = isFirstRow ? ROW0_HEIGHT : ROW1_HEIGHT;
+  const right = tile.col_start + tile.col_span;
+
+  const radius =
+    [
+      isFirstRow && tile.col_start === 0 ? "rounded-tl-card" : "",
+      isFirstRow && right >= TREE_TOTAL_WIDTH ? "rounded-tr-card" : "",
+      !isFirstRow && tile.col_start === 0 ? "rounded-bl-card" : "",
+      !isFirstRow && right >= TREE_TOTAL_WIDTH ? "rounded-br-card" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
   return (
     <div
       role="img"
       aria-label={`${tileLabel(tile)} 占比 ${tile.weight_pct}，隔夜 ${tile.change_pct}`}
-      className={`${tileColorClass(tile.color)} ${radiusClasses} flex h-full flex-col justify-end p-[10px]`}
-      style={{ width: `${tile.col_span}px`, height: `${ROW_HEIGHTS[tile.row]}px` }}
+      className={`${tileColorClass(tile.color)} ${radius} absolute flex flex-col justify-end p-[10px]`}
+      style={{
+        left: `${tile.col_start}px`,
+        top: `${top}px`,
+        width: `${tile.col_span}px`,
+        height: `${height}px`,
+      }}
     >
       <div className="flex items-baseline gap-[6px] font-mono text-[11px] font-medium leading-tight">
         <span>{tileLabel(tile)}</span>
@@ -57,9 +78,6 @@ function Tile({ tile }: { tile: PortfolioTile }) {
 }
 
 export function PortfolioTreemap({ snapshot, stale }: { snapshot: PortfolioSnapshot; stale?: boolean }) {
-  const row0 = snapshot.tiles.filter((t) => t.row === 0).sort((a, b) => a.col_start - b.col_start);
-  const row1 = snapshot.tiles.filter((t) => t.row === 1).sort((a, b) => a.col_start - b.col_start);
-
   return (
     <div className="flex w-[640px] flex-col gap-3" aria-labelledby="portfolio-heading">
       <div className="flex items-center justify-between">
@@ -71,22 +89,13 @@ export function PortfolioTreemap({ snapshot, stale }: { snapshot: PortfolioSnaps
 
       <div
         className="relative"
-        style={{ width: `${TREE_TOTAL_WIDTH}px`, height: `${ROW_HEIGHTS[0] + ROW_HEIGHTS[1] + 4}px` }}
+        style={{ width: `${TREE_TOTAL_WIDTH}px`, height: `${TREE_TOTAL_HEIGHT}px` }}
       >
-        <div className="flex" style={{ gap: "0px" }}>
-          <div className="flex" style={{ gap: 4 }}>
-            {row0.map((t) => (
-              <Tile key={t.ticker} tile={t} />
-            ))}
-          </div>
-        </div>
-        <div className="mt-1 flex" style={{ gap: 4 }}>
-          {row1.map((t) => (
-            <Tile key={t.ticker} tile={t} />
-          ))}
-        </div>
+        {snapshot.tiles.map((t) => (
+          <Tile key={t.ticker} tile={t} />
+        ))}
         {stale && (
-          <div className="absolute inset-0 flex items-center justify-center bg-canvas/60 backdrop-blur-[2px]">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-canvas/60 backdrop-blur-[2px]">
             <span className="rounded-chip bg-canvas/90 px-3 py-1 font-mono text-[11px] text-ink-500">
               持仓快照不可用 — 显示上一日 brief
             </span>

@@ -4405,46 +4405,6 @@
                   "children": [
                     {
                       "type": "frame",
-                      "id": "oWruu",
-                      "name": "move",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 8,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "sfNH6",
-                          "fill": "#5C5C58",
-                          "content": "隔夜估算",
-                          "fontFamily": "JetBrains Mono",
-                          "fontSize": 10,
-                          "fontWeight": "500"
-                        },
-                        {
-                          "type": "text",
-                          "id": "5v98D",
-                          "fill": "#db2627ff",
-                          "content": "-1.09%",
-                          "fontFamily": "JetBrains Mono",
-                          "fontSize": 32,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "LgAoL",
-                          "fill": "#5C5C58",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "▼ 英伟达盘后指引下调拖累美股科技仓位；港股互联网吸收腾讯回购利好。",
-                          "lineHeight": 1.45,
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
                       "id": "VTBM5",
                       "name": "base",
                       "width": "fill_container",
@@ -4568,6 +4528,46 @@
                               "fontWeight": "normal"
                             }
                           ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "oWruu",
+                      "name": "move",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "sfNH6",
+                          "fill": "#5C5C58",
+                          "content": "隔夜估算",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 10,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "5v98D",
+                          "fill": "#db2627ff",
+                          "content": "-1.09%",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 32,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "LgAoL",
+                          "fill": "#5C5C58",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "▼ 英伟达盘后指引下调拖累美股科技仓位；港股互联网吸收腾讯回购利好。",
+                          "lineHeight": 1.45,
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
                         }
                       ]
                     }

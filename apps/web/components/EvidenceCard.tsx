@@ -1,18 +1,23 @@
 "use client";
 
 import type { EvidenceCard as EvidenceCardType } from "@/lib/types";
-import { useAppStore } from "@/store/use-app-store";
 
+/**
+ * Evidence card — frame uOtTm / ZmOHQ / tnA5G.
+ *
+ * The whole card is a link to the original source. There is no "selected"
+ * or "highlighted" state — per design feedback, the card surface stays
+ * plain white in every situation; the only feedback is `:hover` /
+ * `:focus-visible` which the global focus ring handles.
+ */
 export function EvidenceCardItem({ card }: { card: EvidenceCardType }) {
-  const highlighted = useAppStore((s) => s.drawer.highlightedEvidenceId === card.evidence_id);
-
   return (
-    <article
+    <a
       data-evidence-id={card.evidence_id}
-      className={[
-        "flex flex-col gap-[7px] rounded-card border border-line bg-surface px-[18px] py-4",
-        highlighted ? "ring-2 ring-orange-600 transition-shadow duration-200" : "",
-      ].join(" ")}
+      href={card.source_link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex flex-col gap-[7px] rounded-card bg-surface px-[18px] py-4 transition-colors hover:bg-warningWash"
     >
       <span
         className={[
@@ -24,14 +29,7 @@ export function EvidenceCardItem({ card }: { card: EvidenceCardType }) {
       </span>
       <span className="font-sans text-[13px] text-ink-500">{card.title}</span>
       <p className="font-serif text-[16px] font-medium leading-[1.35] text-ink-700">{card.quote}</p>
-      <a
-        href={card.source_link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="font-mono text-[11px] text-orange-600 hover:underline"
-      >
-        查看原文 ↗
-      </a>
-    </article>
+      <span className="font-mono text-[11px] text-orange-600">查看原文 ↗</span>
+    </a>
   );
 }
