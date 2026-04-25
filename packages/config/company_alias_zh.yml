@@ -1,0 +1,114 @@
+# 中文公司名 → ticker 别名表。
+# 用于 sensitive_entity_dictionary 与 anonymization.replace。
+# 每个 ticker 保留可能在中文新闻 / 微信 / 雪球出现的所有变体（全名 / 简称 / 缩写）。
+
+NVDA:
+  - 英伟达
+  - 辉达
+  - 英伟达公司
+  - NVIDIA
+AAPL:
+  - 苹果
+  - 苹果公司
+  - Apple
+MSFT:
+  - 微软
+  - 微软公司
+  - Microsoft
+GOOGL:
+  - 谷歌
+  - Alphabet
+  - Google
+AMZN:
+  - 亚马逊
+  - Amazon
+META:
+  - 脸书
+  - Meta
+  - Facebook
+TSLA:
+  - 特斯拉
+  - Tesla
+AMD:
+  - 超威半导体
+  - AMD
+INTC:
+  - 英特尔
+  - Intel
+TSM:
+  - 台积电
+  - 台湾积体电路
+  - TSMC
+JPM:
+  - 摩根大通
+  - JPMorgan
+BAC:
+  - 美国银行
+  - Bank of America
+XOM:
+  - 埃克森美孚
+  - ExxonMobil
+PFE:
+  - 辉瑞
+  - Pfizer
+LLY:
+  - 礼来
+  - Eli Lilly
+DIS:
+  - 迪士尼
+  - Disney
+WMT:
+  - 沃尔玛
+  - Walmart
+KO:
+  - 可口可乐
+  - Coca-Cola
+PG:
+  - 宝洁
+  - Procter & Gamble
+0700.HK:
+  - 腾讯
+  - 腾讯控股
+  - Tencent
+9988.HK:
+  - 阿里巴巴
+  - 阿里
+  - Alibaba
+3690.HK:
+  - 美团
+  - Meituan
+1810.HK:
+  - 小米
+  - 小米集团
+  - Xiaomi
+0992.HK:
+  - 联想
+  - 联想集团
+  - Lenovo
+0005.HK:
+  - 汇丰
+  - 汇丰控股
+  - HSBC
+0388.HK:
+  - 港交所
+  - 香港交易所
+  - HKEX
+2318.HK:
+  - 中国平安
+  - 平安保险
+  - Ping An
+TLT:
+  - 美国长期国债 ETF
+  - TLT
+GLD:
+  - 黄金 ETF
+  - SPDR Gold
+SPY:
+  - 标普 500 ETF
+  - SPY
+QQQ:
+  - 纳斯达克 100 ETF
+  - QQQ
+2800.HK:
+  - 盈富基金
+  - 盈富

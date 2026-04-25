@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    background-color: #fafaf7;
+    color: #0f0f0e;
+  }
+
+  body {
+    font-family: var(--font-inter), Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Canonical focus ring per Pencil frame Nh2S4: 2px #C2410C + 2px offset */
+  :focus-visible {
+    outline: 2px solid #c2410c;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+@layer utilities {
+  .text-meta {
+    font-family: var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+    color: #5c5c58;
+  }
+
+  .text-label {
+    font-family: var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #5c5c58;
+  }
+
+  .border-line {
+    border-color: #e8e7e1;
+  }
+
+  .scrollable-y {
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}

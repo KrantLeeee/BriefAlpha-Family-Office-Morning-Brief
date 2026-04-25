@@ -1,0 +1,15 @@
+[Unit]
+Description=BriefAlpha API
+After=network.target redis-server.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/briefalpha/apps/api
+EnvironmentFile=/etc/briefalpha/env
+ExecStart=/usr/local/bin/uv run uvicorn briefalpha_api.main:app --host 0.0.0.0 --port 8000
+Restart=always
+User=briefalpha
+Group=briefalpha
+
+[Install]
+WantedBy=multi-user.target

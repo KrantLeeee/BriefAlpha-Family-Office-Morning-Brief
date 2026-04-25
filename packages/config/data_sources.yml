@@ -1,0 +1,47 @@
+# BriefAlpha data source configuration.
+# `enabled: false` skips the source for the day; fallbacks are tried in order.
+
+market:
+  primary: yfinance
+  fallbacks: [stooq, finnhub, alpha_vantage]
+  rate_limit_per_min: 60
+  enabled: true
+
+news:
+  primary: gdelt
+  fallbacks: [google_news_rss]
+  rate_limit_per_min: 30
+  enabled: true
+
+official:
+  primary: sec_edgar_rss
+  fallbacks: [hkex_rss]
+  rate_limit_per_min: 10
+  enabled: true
+
+sec:
+  # PRD §6.4 / 4.4b: SEC EDGAR fair-use policy mandates contact email in UA.
+  # Process startup MUST fail if this is missing.
+  user_agent: "BriefAlpha demo <ops@example.com>"
+
+hkex:
+  base_url: "https://www.hkexnews.hk"
+
+# Per-provider switches (used by ingestion adapters)
+providers:
+  yfinance:
+    enabled: true
+  stooq:
+    enabled: true
+  finnhub:
+    enabled: false
+  alpha_vantage:
+    enabled: false
+  gdelt:
+    enabled: true
+  google_news_rss:
+    enabled: true
+  sec_edgar_rss:
+    enabled: true
+  hkex_rss:
+    enabled: true

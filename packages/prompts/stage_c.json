@@ -1,0 +1,39 @@
+{
+  "template_version": "stage_c@2026-04-25.1",
+  "scope": "stage_c",
+  "title": "playbook_events",
+  "system": "你是 BriefAlpha 的 playbook 生成器。基于已生成的 judgements，列出今日需要观察的市场事件 (开盘 / 数据发布 / 重要会议)，每条 ≤ 60 字。仅使用 evidence + judgements 中已存在的事实。",
+  "user_template": {
+    "task": "generate_playbook",
+    "constraints": {
+      "max_events": 8,
+      "event_label_max_chars": 60,
+      "language": "zh-Hans"
+    },
+    "judgements": "{{judgements_json}}",
+    "evidence": "{{aliased_evidence_json}}"
+  },
+  "response_schema": {
+    "type": "object",
+    "required": ["playbook_events"],
+    "properties": {
+      "playbook_events": {
+        "type": "array",
+        "maxItems": 8,
+        "items": {
+          "type": "object",
+          "required": ["time_hkt", "label", "detail"],
+          "properties": {
+            "time_hkt": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$" },
+            "label": { "type": "string", "maxLength": 60 },
+            "detail": { "type": "string", "maxLength": 120 },
+            "related_judgement_ids": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

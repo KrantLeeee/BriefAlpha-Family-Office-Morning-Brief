@@ -1,0 +1,82 @@
+[project]
+name = "briefalpha-api"
+version = "0.1.0"
+description = "BriefAlpha backend (FastAPI + APScheduler + SQLAlchemy + SQLite (FTS5) + Redis)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "apscheduler>=3.10.4",
+    "sqlalchemy>=2.0.36",
+    "aiosqlite>=0.20.0",
+    "alembic>=1.13.3",
+    "redis>=5.2.0",
+    "httpx>=0.27.2",
+    "pydantic>=2.9.2",
+    "pydantic-settings>=2.6.1",
+    "pyyaml>=6.0.2",
+    "cryptography>=43.0.3",
+    "pdfplumber>=0.11.4",
+    "pytesseract>=0.3.13",
+    "sentence-transformers>=3.2.1",
+    "anthropic>=0.39.0",
+    "openai>=1.54.3",
+    "yfinance>=0.2.49",
+    "tzdata>=2024.2",
+    "pandas-market-calendars>=4.4.2",
+    "python-multipart>=0.0.17",
+    "tenacity>=9.0.0",
+    "structlog>=24.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+    "vcrpy>=6.0.2",
+    "import-linter>=2.1",
+    "ruff>=0.7.2",
+    "mypy>=1.13.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+python_classes = "Test*"
+python_files = "test_*.py"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.importlinter]
+root_packages = ["briefalpha_api"]
+
+[[tool.importlinter.contracts]]
+name = "Provider SDKs only allowed inside the LLM wrapper"
+type = "forbidden"
+source_modules = [
+    "briefalpha_api.routers",
+    "briefalpha_api.pipeline",
+    "briefalpha_api.ingestion",
+    "briefalpha_api.anonymization",
+    "briefalpha_api.search",
+    "briefalpha_api.research",
+    "briefalpha_api.portfolio",
+    "briefalpha_api.audit",
+    "briefalpha_api.scheduler",
+    "briefalpha_api.db",
+]
+forbidden_modules = ["anthropic", "openai"]
+ignore_imports = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["briefalpha_api"]

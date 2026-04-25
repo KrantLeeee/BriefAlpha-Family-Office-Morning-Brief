@@ -1,0 +1,69 @@
+{
+  "version": "2026-04-25.1",
+  "description": "Curated golden cases for BriefAlpha pipeline regression. Each case carries an evidence_pool_full snapshot + expected metrics. Runner in `tests/golden/runner.py` re-runs the pipeline + accuracy_validator against each case and emits a metrics report.",
+  "cases": [
+    {
+      "id": "earnings_beat_clean",
+      "scenario": "earnings",
+      "summary": "NVDA earnings beat reported by 4 sources, all directional alignment.",
+      "evidence_count": 4,
+      "expected": { "judgement_count": 1, "polarity": "positive", "conflict": false }
+    },
+    {
+      "id": "earnings_miss_with_conflict",
+      "scenario": "earnings",
+      "summary": "NVDA Q1 guidance cut. Reuters quotes 8%, Bloomberg quotes 10% — flagged conflict.",
+      "evidence_count": 4,
+      "expected": { "judgement_count": 1, "conflict": true, "requires_review": true }
+    },
+    {
+      "id": "policy_day_macro",
+      "scenario": "policy",
+      "summary": "Williams 'mildly restrictive' speech; rates desk reaction in 3 sources.",
+      "evidence_count": 3,
+      "expected": { "judgement_count": 1, "asset_class": "us_treasury" }
+    },
+    {
+      "id": "calm_day_no_priority",
+      "scenario": "calm_day",
+      "summary": "Light news flow; expected output reverts to base_case + summary only.",
+      "evidence_count": 8,
+      "expected": { "judgement_count": 0 }
+    },
+    {
+      "id": "breaking_news_singlesource",
+      "scenario": "breaking",
+      "summary": "Single-source breaking — should mark requires_review until corroborated.",
+      "evidence_count": 1,
+      "expected": { "requires_review": true }
+    },
+    {
+      "id": "macro_pulse_pce",
+      "scenario": "macro",
+      "summary": "PCE prints in line; macro_pulse only.",
+      "evidence_count": 6,
+      "expected": { "judgement_count": 0 }
+    },
+    {
+      "id": "hkex_filing_buyback",
+      "scenario": "hkex",
+      "summary": "Tencent buyback authorization; should pull HKEX 7:30 HKT filing as primary.",
+      "evidence_count": 2,
+      "expected": { "judgement_count": 1, "primary_source_tier": "official" }
+    },
+    {
+      "id": "sec_8k_revenue_warn",
+      "scenario": "sec",
+      "summary": "Revenue warning 8-K — official tier wins primary slot.",
+      "evidence_count": 3,
+      "expected": { "primary_source_tier": "official" }
+    },
+    {
+      "id": "research_pdf_external_ticker",
+      "scenario": "research_pdf",
+      "summary": "Goldman PDF mentions BIDU (external) — pool ingests with warning, no universe expansion.",
+      "evidence_count": 18,
+      "expected": { "external_ticker_warning": true, "auto_expand_universe": false }
+    }
+  ]
+}

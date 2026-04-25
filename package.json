@@ -1,0 +1,14 @@
+{
+  "name": "briefalpha",
+  "private": true,
+  "version": "0.1.0",
+  "description": "BriefAlpha — family-office morning brief MVP (monorepo root)",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm --filter @briefalpha/web dev",
+    "build": "pnpm --filter @briefalpha/web build",
+    "lint": "pnpm --filter @briefalpha/web lint",
+    "typecheck": "pnpm --filter @briefalpha/web typecheck",
+    "test:e2e": "pnpm --filter @briefalpha/web test:e2e"
+  }
+}

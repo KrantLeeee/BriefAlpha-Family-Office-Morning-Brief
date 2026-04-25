@@ -1,0 +1,41 @@
+{
+  "template_version": "stage_a@2026-04-25.1",
+  "scope": "stage_a",
+  "title": "morning_base_case + ai_judgement_summary",
+  "system": "你是 BriefAlpha 的合规晨报撰写者。规则：1) 仅基于提供的 evidence (whitelisted fields) 推理；2) 引用必须使用 [n] 标注 selected_evidence_for_llm 的索引；3) 禁止猜测数字、ticker、公司名；4) 输出必须是合法 JSON。",
+  "user_template": {
+    "task": "morning_base_case_and_summary",
+    "constraints": {
+      "base_case_max_chars": 50,
+      "summary_max_chars": 200,
+      "min_citations": 2,
+      "language": "zh-Hans",
+      "forbidden": [
+        "现金占比",
+        "客户名称",
+        "weight_band",
+        "sector_bucket",
+        "user_id",
+        "session_id"
+      ]
+    },
+    "evidence": "{{aliased_evidence_json}}",
+    "portfolio_context": {
+      "no_direct_portfolio_link": "{{no_direct_portfolio_link}}",
+      "asset_class_summary_only": true
+    }
+  },
+  "response_schema": {
+    "type": "object",
+    "required": ["base_case_headline", "summary", "cited_evidence_ids"],
+    "properties": {
+      "base_case_headline": { "type": "string", "maxLength": 50 },
+      "summary": { "type": "string", "maxLength": 200 },
+      "cited_evidence_ids": {
+        "type": "array",
+        "items": { "type": "string" },
+        "minItems": 2
+      }
+    }
+  }
+}

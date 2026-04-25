@@ -1,0 +1,29 @@
+{
+  "template_version": "qa_global@2026-04-25.1",
+  "scope": "qa_global",
+  "title": "Global QA — full evidence_pool_full scope (P1)",
+  "system": "你是 BriefAlpha 的全局追问回答者。基于 evidence_pool_full 中的 retrieved_evidence 回答，引用至少 1 条 evidence_id。涉及多个 judgement 时分别引用。如果 evidence 不足以回答，必须返回 insufficient_evidence=true。",
+  "user_template": {
+    "task": "answer_global_question",
+    "constraints": {
+      "answer_max_chars": 500,
+      "language": "zh-Hans",
+      "forbidden": ["weight%", "客户身份", "user_id"]
+    },
+    "user_question_aliased": "{{user_question_aliased}}",
+    "retrieved_evidence": "{{aliased_evidence_json}}",
+    "qa_history": "{{qa_history_json}}"
+  },
+  "response_schema": {
+    "type": "object",
+    "required": ["answer", "cited_evidence_ids"],
+    "properties": {
+      "answer": { "type": "string", "maxLength": 500 },
+      "cited_evidence_ids": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "insufficient_evidence": { "type": "boolean" }
+    }
+  }
+}

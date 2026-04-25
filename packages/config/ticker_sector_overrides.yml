@@ -1,0 +1,53 @@
+# Ticker → sector / industry / asset_class manual overrides.
+# yfinance fields are a fallback; entries here win.
+# Coverage MUST include demo portfolio, watchlist, and core HK / US universe (≥ 30 rows).
+
+# US — Mega-cap tech & semis
+NVDA: { sector: "Information Technology", industry: "Semiconductors", asset_class: "us_equity" }
+AAPL: { sector: "Information Technology", industry: "Tech Hardware", asset_class: "us_equity" }
+MSFT: { sector: "Information Technology", industry: "Software", asset_class: "us_equity" }
+GOOGL: { sector: "Communication Services", industry: "Internet Media", asset_class: "us_equity" }
+META: { sector: "Communication Services", industry: "Internet Media", asset_class: "us_equity" }
+AMZN: { sector: "Consumer Discretionary", industry: "Internet Retail", asset_class: "us_equity" }
+TSLA: { sector: "Consumer Discretionary", industry: "Automobiles", asset_class: "us_equity" }
+AMD: { sector: "Information Technology", industry: "Semiconductors", asset_class: "us_equity" }
+INTC: { sector: "Information Technology", industry: "Semiconductors", asset_class: "us_equity" }
+TSM: { sector: "Information Technology", industry: "Semiconductors", asset_class: "us_equity" }
+
+# US — Other sectors
+JPM: { sector: "Financials", industry: "Banks", asset_class: "us_equity" }
+BAC: { sector: "Financials", industry: "Banks", asset_class: "us_equity" }
+XOM: { sector: "Energy", industry: "Integrated Oil & Gas", asset_class: "us_equity" }
+CVX: { sector: "Energy", industry: "Integrated Oil & Gas", asset_class: "us_equity" }
+PFE: { sector: "Health Care", industry: "Pharmaceuticals", asset_class: "us_equity" }
+LLY: { sector: "Health Care", industry: "Pharmaceuticals", asset_class: "us_equity" }
+WMT: { sector: "Consumer Staples", industry: "Hypermarkets", asset_class: "us_equity" }
+PG: { sector: "Consumer Staples", industry: "Household Products", asset_class: "us_equity" }
+KO: { sector: "Consumer Staples", industry: "Beverages", asset_class: "us_equity" }
+DIS: { sector: "Communication Services", industry: "Entertainment", asset_class: "us_equity" }
+MTN: { sector: "Consumer Discretionary", industry: "Hotels Resorts & Cruise Lines", asset_class: "us_equity" }
+
+# HK — Internet
+0700.HK: { sector: "Communication Services", industry: "Interactive Media", asset_class: "hk_equity" }
+9988.HK: { sector: "Consumer Discretionary", industry: "Internet Retail", asset_class: "hk_equity" }
+3690.HK: { sector: "Consumer Discretionary", industry: "Internet Retail", asset_class: "hk_equity" }
+1810.HK: { sector: "Information Technology", industry: "Tech Hardware", asset_class: "hk_equity" }
+0992.HK: { sector: "Information Technology", industry: "Tech Hardware", asset_class: "hk_equity" }
+
+# HK — Financials
+0005.HK: { sector: "Financials", industry: "Banks", asset_class: "hk_equity" }
+0388.HK: { sector: "Financials", industry: "Capital Markets", asset_class: "hk_equity" }
+2318.HK: { sector: "Financials", industry: "Insurance", asset_class: "hk_equity" }
+
+# Treasuries / commodities / cash
+TLT: { sector: "Fixed Income", industry: "US Treasuries", asset_class: "us_treasury" }
+IEF: { sector: "Fixed Income", industry: "US Treasuries", asset_class: "us_treasury" }
+GLD: { sector: "Commodities", industry: "Gold", asset_class: "commodity" }
+SLV: { sector: "Commodities", industry: "Silver", asset_class: "commodity" }
+CASH: { sector: "Cash", industry: "Cash", asset_class: "cash" }
+
+# Broad-market decoy ETFs (used by universe builder)
+SPY: { sector: "Broad Equity", industry: "S&P 500 ETF", asset_class: "us_equity_etf" }
+QQQ: { sector: "Broad Equity", industry: "Nasdaq-100 ETF", asset_class: "us_equity_etf" }
+IWM: { sector: "Broad Equity", industry: "Russell 2000 ETF", asset_class: "us_equity_etf" }
+2800.HK: { sector: "Broad Equity", industry: "Tracker Fund of HK", asset_class: "hk_equity_etf" }
