@@ -19,3 +19,13 @@ class MacroPulseItem(BaseModel):
     delta: str
     threshold: str
     status: Literal["ok", "watch", "alert"]
+
+
+class ReviewMeta(BaseModel):
+    reason: Literal["source_conflict", "portfolio_uncertain", "threshold_breach", "data_gap"]
+    note: str = ""
+    status: Literal["open", "reviewed"] = "open"
+    reviewed_at: str | None = None
+
+
+LinkKind = Literal["external", "internal_demo", "internal_research", "unavailable"]
