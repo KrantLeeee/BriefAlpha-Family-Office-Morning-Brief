@@ -104,7 +104,14 @@ export function PortfolioTreemap({ snapshot, stale }: { snapshot: PortfolioSnaps
       </div>
 
       <div className="flex items-center gap-2 border-t border-line py-[6px]">
-        <span className="text-label">关注列表</span>
+        <span className="text-label">市场参照（非持仓）</span>
+        <span
+          aria-label="非组合持仓但持续关注的标的，用作市场背景参考。点击编辑（即将上线）。"
+          title="非组合持仓但持续关注的标的，用作市场背景参考。点击编辑（即将上线）。"
+          className="cursor-help font-mono text-[10px] text-ink-400"
+        >
+          (?)
+        </span>
         <span className="font-mono text-[10px] text-ink-500">{snapshot.watchlist_summary}</span>
       </div>
     </div>

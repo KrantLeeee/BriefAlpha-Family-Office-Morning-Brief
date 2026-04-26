@@ -163,7 +163,7 @@ def get_demo_brief() -> dict[str, Any]:
                     "col_span": 71,
                 },
             ],
-            "watchlist_summary": "AMD · GOOGL · 1810.HK · 未持有 · 仅作市场参照",
+            "watchlist_summary": "AMD · GOOGL · 1810.HK",
         },
         "judgements": [
             {

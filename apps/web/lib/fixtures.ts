@@ -58,7 +58,7 @@ export const demoBrief: Brief = {
       { ticker: "TSLA", weight_pct: "5.0%", change_pct: "-2.7%", trend: "down", color: "treemap.tsla", row: 1, col_start: 498, col_span: 71 },
       { ticker: "MTN", weight_pct: "5.0%", change_pct: "+0.6%", trend: "up", color: "treemap.mtn", row: 1, col_start: 569, col_span: 71 },
     ],
-    watchlist_summary: "AMD · GOOGL · 1810.HK · 未持有 · 仅作市场参照",
+    watchlist_summary: "AMD · GOOGL · 1810.HK",
   },
   judgements: [
     {
