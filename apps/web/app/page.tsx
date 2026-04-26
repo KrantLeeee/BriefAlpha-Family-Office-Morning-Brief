@@ -44,11 +44,12 @@ export default async function HomePage() {
           <MacroPulseCollapsed
             label={brief.macro_pulse_collapsed.label}
             expandLabel={brief.macro_pulse_collapsed.expand_label}
+            items={brief.macro_pulse}
           />
         </div>
       </section>
 
-      <TodayPlaybook events={brief.playbook_events} />
+      <TodayPlaybook events={brief.playbook_events} judgements={brief.judgements} />
       <DeepRead deepRead={brief.deep_read} sourceHealth={sourceHealth} />
       <Footer
         left={brief.footer.left}
