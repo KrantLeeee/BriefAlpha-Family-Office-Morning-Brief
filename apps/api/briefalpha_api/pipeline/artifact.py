@@ -265,6 +265,7 @@ def _build_judgements(
                 "metadata": _judgement_metadata(raw, evidence_cards),
                 "evidence_count": len(cited),
                 "requires_review": bool(raw.get("requires_review")),
+                "review": derive_review(raw),
                 "no_direct_portfolio_link": bool(raw.get("no_direct_portfolio_link")),
                 "reasoning_chain": raw.get("reasoning_chain", {}),
                 "evidence": evidence_cards,
@@ -273,6 +274,20 @@ def _build_judgements(
             }
         )
     return out
+
+
+def derive_review(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Map legacy `requires_review: bool` onto the structured `review` dict.
+
+    Explicit `review` dicts win; otherwise a truthy `requires_review` yields a
+    default `data_gap` open review; everything else returns None.
+    """
+    review = raw.get("review")
+    if isinstance(review, dict):
+        return review
+    if raw.get("requires_review"):
+        return {"reason": "data_gap", "note": "", "status": "open", "reviewed_at": None}
+    return None
 
 
 def _level_label(level: str, requires_review: bool) -> str:
