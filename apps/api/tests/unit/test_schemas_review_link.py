@@ -1,3 +1,5 @@
+from typing import get_args
+
 import pydantic
 import pytest
 
@@ -32,6 +34,9 @@ def test_review_meta_rejects_invalid_status():
 
 
 def test_link_kind_is_literal_alias():
-    valid: LinkKind  # type: ignore[unused-variable]
-    from typing import get_args
-    assert set(get_args(LinkKind)) == {"external", "internal_demo", "internal_research", "unavailable"}
+    assert set(get_args(LinkKind)) == {
+        "external",
+        "internal_demo",
+        "internal_research",
+        "unavailable",
+    }
