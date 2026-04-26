@@ -22,7 +22,7 @@ from fastapi import APIRouter
 
 from briefalpha_api.cache import get_brief_cache, set_brief_cache
 from briefalpha_api.fixtures.brief import get_demo_brief
-from briefalpha_api.pipeline import run_full_brief
+from briefalpha_api.pipeline.run import run_full_brief
 
 router = APIRouter()
 log = logging.getLogger("briefalpha.routers.brief")

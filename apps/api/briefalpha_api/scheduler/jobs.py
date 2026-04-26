@@ -91,7 +91,7 @@ async def _freeze_and_run_brief_job() -> None:
     pipeline error doesn't kill the scheduler — the brief route falls back
     to the prior day with `stale=True` if the cache stays cold."""
     from briefalpha_api.cache import set_brief_cache
-    from briefalpha_api.pipeline import run_full_brief
+    from briefalpha_api.pipeline.run import run_full_brief
 
     today = datetime.now(tz=HKT).strftime("%Y-%m-%d")
     log.info("scheduler: 07:55 freeze + run_brief for %s starting", today)

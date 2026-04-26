@@ -7,7 +7,9 @@ Stages run in fixed order:
 
 `conflict_resolve` MUST run before `final_scoring` so the conflict marker
 can downweight `market_confirmation` (BPS).
-"""
 
-from .artifact import build_brief_artifact  # noqa: F401
-from .run import run_full_brief, run_pipeline  # noqa: F401
+Note: this package intentionally avoids eager re-exports of heavy entry
+points (e.g. `run_full_brief`, `run_pipeline`) so lightweight schema-only
+consumers (`briefalpha_api.pipeline.schemas`) don't pull the cache/redis
+stack at import time. Import those directly from `.run` / `.artifact`.
+"""
