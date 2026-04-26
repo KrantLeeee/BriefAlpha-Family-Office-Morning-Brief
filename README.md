@@ -75,8 +75,8 @@ make dev-web      # Next.js on :3000
 
 If you don't have Redis available, set `BRIEFALPHA_DISABLE_REDIS=1` —
 the cache layer degrades to no-op (every request triggers a fresh DB
-read or fallback to fixture data). To skip the cron scheduler too set
-`BRIEFALPHA_DISABLE_SCHEDULER=1`.
+read or — in demo mode — the fixture). To skip the cron scheduler too
+set `BRIEFALPHA_DISABLE_SCHEDULER=1`.
 
 <a id="switching-modes"></a>
 ## Switching modes (demo / live)

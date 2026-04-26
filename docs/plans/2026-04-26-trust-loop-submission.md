@@ -27,7 +27,7 @@ User feedback uncovered nine concrete UX issues, but they were all symptoms of t
 | **Web client failures** | silent fallback to fixture | error propagates; page can render explicit error state |
 | **Live startup** | no preconditions check | fail-fast on missing LLM key / SEC user agent — exit 1 with explicit log |
 
-A persistent `<ModeBanner>` reads `Brief.system` and shows the user which mode is active and what the data status is. There is no path where the user sees fixture data without an explicit, persistent label.
+A persistent `<ModeBanner>` reads `Brief.system` and shows the user which mode is active and what the data status is. All user-facing brief / source-health / refresh / QA paths label fixture data explicitly. The `/api/portfolio` and `/api/judgement/{id}/drawer` admin paths now also respect the mode (post 2ba54b0 fixes).
 
 ## 3. The 9 reported issues — fix matrix
 
