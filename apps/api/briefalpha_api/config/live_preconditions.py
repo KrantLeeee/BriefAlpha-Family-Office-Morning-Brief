@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+
+from briefalpha_api.settings import SECRETS_DIR
 
 
 def check_live_preconditions() -> list[str]:
@@ -29,7 +30,7 @@ def _has_llm_key() -> bool:
 
 
 def _has_secrets_file_key() -> bool:
-    path = Path("data/.secrets/llm_api_keys.json")
+    path = SECRETS_DIR / "llm_api_keys.json"
     if not path.exists():
         return False
     try:
@@ -40,6 +41,10 @@ def _has_secrets_file_key() -> bool:
         return False
     for key in ("anthropic", "openai"):
         value = data.get(key)
-        if isinstance(value, str) and value.strip() and value != "replace-me":
+        if (
+            isinstance(value, str)
+            and value.strip()
+            and "replace-me" not in value
+        ):
             return True
     return False
