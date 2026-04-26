@@ -19,6 +19,11 @@ from pathlib import Path
 
 # Skip secrets check during tests.
 os.environ.setdefault("BRIEFALPHA_SKIP_SECRETS_CHECK", "1")
+# Don't spawn the APScheduler instance in tests — cron jobs would race the
+# test database lifecycle and add noise.
+os.environ.setdefault("BRIEFALPHA_DISABLE_SCHEDULER", "1")
+# Disable redis entirely; routers fall back gracefully (cache miss path).
+os.environ.setdefault("BRIEFALPHA_DISABLE_REDIS", "1")
 
 # Make the package importable when pytest runs from apps/api.
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,11 +80,16 @@ _settings_mod.get_settings.cache_clear()
 
 
 def _create_schema_if_needed() -> None:
-    """Create all tables in the tmp sqlite file.
+    """Create all tables (including FTS5 virtual) in the tmp sqlite file.
 
     Called once per test session via a session-scoped autouse fixture below.
+    `Base.metadata.create_all` doesn't know about the FTS5 virtual table
+    (it's created via raw DDL in the alembic migration), so we issue the
+    CREATE VIRTUAL TABLE manually here.
     """
     import asyncio
+
+    from sqlalchemy import text
 
     from briefalpha_api.db.models import Base
     from briefalpha_api.db.session import engine
@@ -87,6 +97,22 @@ def _create_schema_if_needed() -> None:
     async def _create_all() -> None:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(
+                text(
+                    """
+                    CREATE VIRTUAL TABLE IF NOT EXISTS evidence_fts USING fts5(
+                        evidence_id UNINDEXED,
+                        brief_id UNINDEXED,
+                        title,
+                        excerpt,
+                        detected_tickers,
+                        chunk_type UNINDEXED,
+                        source_tier UNINDEXED,
+                        tokenize='unicode61'
+                    )
+                    """
+                )
+            )
 
     asyncio.run(_create_all())
 

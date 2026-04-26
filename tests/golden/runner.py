@@ -73,9 +73,46 @@ if not _KEYS.exists():
     _KEYS.chmod(0o600)
 
 # Steer DB at a tmp-ish file so any incidental session imports don't try to
-# touch a real DB. The runner itself doesn't query the DB.
+# touch a real DB. We create the schema on first import so the audit-log
+# best-effort write doesn't log a warning per call.
 _DB = DATA_DIR / "briefalpha_golden.db"
 os.environ.setdefault("BRIEFALPHA_DB_URL", f"sqlite+aiosqlite:///{_DB}")
+os.environ.setdefault("BRIEFALPHA_DISABLE_REDIS", "1")
+os.environ.setdefault("BRIEFALPHA_DISABLE_SCHEDULER", "1")
+
+
+def _bootstrap_db() -> None:
+    import asyncio as _asyncio
+
+    from sqlalchemy import text as _text
+
+    from briefalpha_api.db.models import Base as _Base
+    from briefalpha_api.db.session import engine as _engine
+
+    async def _go() -> None:
+        async with _engine.begin() as conn:
+            await conn.run_sync(_Base.metadata.create_all)
+            await conn.execute(
+                _text(
+                    """
+                    CREATE VIRTUAL TABLE IF NOT EXISTS evidence_fts USING fts5(
+                        evidence_id UNINDEXED,
+                        brief_id UNINDEXED,
+                        title,
+                        excerpt,
+                        detected_tickers,
+                        chunk_type UNINDEXED,
+                        source_tier UNINDEXED,
+                        tokenize='unicode61'
+                    )
+                    """
+                )
+            )
+
+    _asyncio.run(_go())
+
+
+_bootstrap_db()
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +137,10 @@ from briefalpha_api.portfolio.models import (  # noqa: E402
     BucketSummary,
     ExposureBucket,
 )
-from briefalpha_api.validator.runner import validate_response  # noqa: E402
+from briefalpha_api.validator.runner import (  # noqa: E402
+    EvidencePoolEntry,
+    validate_response,
+)
 
 _ALIAS_TOKEN_RE = __import__("re").compile(r"E_[0-9a-fA-F]{4}")
 
@@ -236,9 +276,19 @@ async def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     citation_locatable: list[bool] = []
     numbers_pass: list[bool] = []
     polarity_pass: list[bool] = []
+    time_window_pass: list[bool] = []
     sensitive_pass: list[bool] = []
     unsafe_alias_count = 0
     conservative_seen = False
+
+    pool_metadata = {
+        e.evidence_id: EvidencePoolEntry(
+            source_tier=e.source_tier,
+            asset_class=e.asset_class,
+            published_at=e.published_at,
+        )
+        for e in selected
+    }
 
     for scope, resp in responses:
         if getattr(resp, "provider", "") == "conservative":
@@ -269,22 +319,27 @@ async def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             answer_text=text,
             quote_span_aliased=None,
             sensitive_dict=sensitive_dict,
+            pool_metadata=pool_metadata,
+            brief_freeze_at_hkt=freeze_at,
         )
-        # The validator chains rules and short-circuits — we only get a
-        # single ok/reason here. Use the reason prefix to bucket pass/fail.
+        # The validator chains rules and short-circuits. To distinguish
+        # "passed" from "not evaluated", we read `result.rules_passed`:
+        # a rule that ran and passed appears in the list; the rule that
+        # failed has its name embedded in `reason`; rules that never ran
+        # are absent — we DON'T count those as passes.
         reason = result.reason or ""
-        if "numbers" in reason:
-            numbers_pass.append(False)
-        else:
-            numbers_pass.append(True)
-        if "polarity" in reason:
-            polarity_pass.append(False)
-        else:
-            polarity_pass.append(True)
-        if "sensitive_output" in reason:
-            sensitive_pass.append(False)
-        else:
-            sensitive_pass.append(True)
+        rules_run = set(result.rules_passed)
+        for name, bucket in (
+            ("numbers", numbers_pass),
+            ("polarity", polarity_pass),
+            ("time_window", time_window_pass),
+            ("sensitive_output", sensitive_pass),
+        ):
+            if name in rules_run:
+                bucket.append(True)
+            elif name in reason:
+                bucket.append(False)
+            # else: rule never evaluated — skip (don't bias the rate)
 
         # Unsafe-generated-alias count: alias tokens in the response that
         # are NOT present in our alias context.
@@ -307,6 +362,7 @@ async def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         "citation_locatable": citation_locatable,
         "numbers_pass": numbers_pass,
         "polarity_pass": polarity_pass,
+        "time_window_pass": time_window_pass,
         "sensitive_pass": sensitive_pass,
         "unsafe_alias_count": unsafe_alias_count,
     }
@@ -328,6 +384,7 @@ def _aggregate(per_case: list[dict[str, Any]]) -> dict[str, Any]:
     citations = [v for c in per_case for v in c["citation_locatable"]]
     numbers = [v for c in per_case for v in c["numbers_pass"]]
     polarity = [v for c in per_case for v in c["polarity_pass"]]
+    time_window = [v for c in per_case for v in c.get("time_window_pass", [])]
     sensitive = [v for c in per_case for v in c["sensitive_pass"]]
     unsafe = sum(c["unsafe_alias_count"] for c in per_case)
     conservative = sum(1 for c in per_case if c["conservative"])
@@ -338,18 +395,12 @@ def _aggregate(per_case: list[dict[str, Any]]) -> dict[str, Any]:
         "citation_locatable_rate": _rate(citations),
         "numbers_consistent_rate": _rate(numbers),
         "polarity_consistent_rate": _rate(polarity),
-        "time_window_consistent_rate": None,
+        "time_window_consistent_rate": _rate(time_window),
         "sensitive_output_pass_rate": _rate(sensitive),
         "unsafe_generated_alias_count": unsafe,
         "conservative_brief_triggered_rate": round(conservative / n, 4) if n else None,
         "no_direct_portfolio_link_rate": round(no_link / n, 4) if n else None,
         "notes": {
-            "time_window_consistent_rate": (
-                "placeholder — full implementation requires the trade-calendar "
-                "validator (validator/time_window.py) to be wired through "
-                "call_text_llm's accuracy_validate hook with brief_id-scoped "
-                "freeze_at; deferred to mainline D."
-            ),
             "stub_provider": (
                 "When llm_api_keys.json contains placeholder values, the LLM "
                 "wrapper returns a deterministic stub response — these metrics "

@@ -57,9 +57,10 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.importlinter]
 root_packages = ["briefalpha_api"]
+include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Provider SDKs only allowed inside the LLM wrapper"
+name = "Provider SDKs only allowed inside the LLM providers module"
 type = "forbidden"
 source_modules = [
     "briefalpha_api.routers",
@@ -72,9 +73,16 @@ source_modules = [
     "briefalpha_api.audit",
     "briefalpha_api.scheduler",
     "briefalpha_api.db",
+    "briefalpha_api.qa",
 ]
 forbidden_modules = ["anthropic", "openai"]
-ignore_imports = []
+# Allowed transitive path: every other module reaches providers through the
+# wrapper, which is the canonical boundary. Only the providers module itself
+# touches the SDKs directly — that's the ONE allowed direct import.
+ignore_imports = [
+    "briefalpha_api.llm.providers -> anthropic",
+    "briefalpha_api.llm.providers -> openai",
+]
 
 [build-system]
 requires = ["hatchling"]

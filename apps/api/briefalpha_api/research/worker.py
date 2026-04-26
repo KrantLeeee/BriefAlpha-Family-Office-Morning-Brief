@@ -15,13 +15,18 @@ see exactly where parsing struggled per task 14.5.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from typing import Any
+
+from briefalpha_api.llm.schema import LlmRequest
+from briefalpha_api.llm.wrapper import call_vision_llm
 
 log = logging.getLogger("briefalpha.research")
 
@@ -96,6 +101,26 @@ def _detect_tickers(content: str, *, ticker_dict: set[str]) -> list[str]:
     return found
 
 
+def _page_to_png_data_url(page: Any) -> str:
+    img = page.to_image(resolution=144).original
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    encoded = base64.b64encode(buf.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def _caption_chunk(*, page: int, content: str) -> Chunk:
+    chunk_id = hashlib.sha1(f"vision:{page}:{content}".encode("utf-8")).hexdigest()[:12]
+    return Chunk(
+        chunk_id=chunk_id,
+        page=page,
+        bbox=None,
+        chunk_type="caption",
+        heading="vision_caption",
+        content=content,
+    )
+
+
 async def process_research_pdf(
     *,
     file_id: str,
@@ -146,18 +171,76 @@ async def process_research_pdf(
         except ImportError:
             stages_status.append({"name": "ocr_fallback", "status": "partial", "detail": "skipped"})
 
-    # 3. vision_caption — gated on consent
-    stages_status.append(
-        {
-            "name": "vision_caption",
-            "status": "ok" if consent_granted else "consent_required",
-            "detail": "ran" if consent_granted else "skipped (no consent)",
-        }
-    )
+    # 3. vision_caption — gated on consent. To control cost, only low-text
+    # pages are captioned; pdfplumber/table extraction remains the first pass.
+    vision_chunks: list[Chunk] = []
+    if consent_granted and sparse_pages:
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                page_lookup = {idx: page for idx, page in enumerate(pdf.pages, start=1)}
+                for page_num in sparse_pages[:3]:
+                    data_url = _page_to_png_data_url(page_lookup[page_num])
+                    req = LlmRequest(
+                        call_type="vision",
+                        scope="vision",
+                        template_version="vision_caption@1",
+                        system=(
+                            "你是金融研究 PDF 的视觉解析器。请只描述页面中可见的图表、"
+                            "表格、标题和关键数字；不要推测页面外信息。"
+                        ),
+                        user_payload={
+                            "page": page_num,
+                            "task": (
+                                "Return JSON with keys caption, tables, key_numbers. "
+                                "Use concise Chinese. If unreadable, say caption_unavailable."
+                            ),
+                            "images": [{"image_url": data_url, "detail": "high"}],
+                        },
+                        response_schema={
+                            "type": "object",
+                            "properties": {
+                                "caption": {"type": "string"},
+                                "tables": {"type": "array", "items": {"type": "string"}},
+                                "key_numbers": {"type": "array", "items": {"type": "string"}},
+                            },
+                            "required": ["caption"],
+                        },
+                        max_tokens=600,
+                        temperature=0.1,
+                    )
+                    resp = await call_vision_llm(
+                        req,
+                        audit_ctx={"brief_id": file_id, "audit_mode": "demo"},
+                    )
+                    structured = resp.structured or {}
+                    caption = structured.get("caption") if isinstance(structured, dict) else None
+                    if not caption:
+                        caption = resp.text
+                    if caption and caption != "caption_unavailable":
+                        vision_chunks.append(_caption_chunk(page=page_num, content=str(caption)))
+            stages_status.append(
+                {
+                    "name": "vision_caption",
+                    "status": "ok",
+                    "detail": f"{len(vision_chunks)} captions",
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            failures.append({"stage": "vision_caption", "reason": str(exc)})
+            stages_status.append({"name": "vision_caption", "status": "partial", "detail": "failed"})
+    else:
+        stages_status.append(
+            {
+                "name": "vision_caption",
+                "status": "consent_required" if not consent_granted else "skipped",
+                "detail": "skipped (no consent)" if not consent_granted else "no sparse pages",
+            }
+        )
 
     # 4. chunking
     for page_num, text in pages_text:
         chunks.extend(_chunkify(text, page=page_num))
+    chunks.extend(vision_chunks)
     stages_status.append({"name": "chunking", "status": "ok", "detail": f"{len(chunks)} chunks"})
 
     # 5. ticker detection

@@ -37,12 +37,31 @@ pnpm install
 # 2. Install Python dependencies
 cd apps/api && uv sync && cd ../..
 
-# 3. Generate local secrets (alias key, admin token placeholders)
+# 3. Generate local secrets (alias_key, admin_token, llm_api_keys.json placeholder)
 make init-secrets
 
 # 4. Apply database migrations
 make db-migrate
+
+# 5. (optional but recommended) Seed a demo portfolio so /api/brief/today
+#    has something to anonymize over the privacy-safe universe.
+python scripts/seed_demo_portfolio.py
 ```
+
+After step 3, edit `data/.secrets/llm_api_keys.json` and replace the
+`replace-me` strings with real provider keys. Without real keys, the
+backend keeps running but every LLM call returns a deterministic stub
+response (the rest of the pipeline + validators + audit log still
+exercise correctly — useful for debugging).
+
+For PDF/image captioning, set `vision_openai` to an OpenAI API key. If
+`vision_openai` is omitted, the backend falls back to the regular `openai`
+key. `vision_anthropic` may remain `replace-me` unless you re-enable the
+Anthropic vision route.
+
+`data/.secrets/admin_token` is a 64-char hex string. Pass it as
+`Authorization: Bearer <token>` to access `/api/portfolio` and any
+`/api/admin/*` endpoint.
 
 ## Run locally
 
@@ -50,9 +69,36 @@ In three separate terminals:
 
 ```bash
 make dev-redis    # Redis on :6379
-make dev-api      # FastAPI on :8000
+make dev-api      # FastAPI on :8000 (also starts APScheduler cron jobs)
 make dev-web      # Next.js on :3000
 ```
+
+If you don't have Redis available, set `BRIEFALPHA_DISABLE_REDIS=1` —
+the cache layer degrades to no-op (every request triggers a fresh DB
+read or fallback to fixture data). To skip the cron scheduler too set
+`BRIEFALPHA_DISABLE_SCHEDULER=1`.
+
+## Quick smoke test
+
+After `make dev-api` is up:
+
+```bash
+ADMIN_TOKEN=$(cat data/.secrets/admin_token)
+
+curl -s http://localhost:8000/api/health
+curl -s http://localhost:8000/api/brief/today | jq '.brief_id, .conservative'
+curl -s http://localhost:8000/api/source-health | jq '.overall, .rows[0]'
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8000/api/admin/diagnostics/conservative-brief-rate
+
+curl -s -X POST http://localhost:8000/api/qa \
+  -H "content-type: application/json" \
+  -d '{"brief_id":"'"$(date -u +%Y-%m-%d)"'","scope":"global","question":"NVDA"}' | jq .
+```
+
+`/api/qa` returns `failure_reason: brief_expired` until the daily
+07:55 HKT brief lands (or you trigger it manually via
+`POST /api/admin/brief/regenerate`).
 
 ## Redis namespaces
 

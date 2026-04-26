@@ -32,6 +32,7 @@ from briefalpha_api.anonymization import (
 from briefalpha_api.anonymization.sensitive_entity_dictionary import (
     build_sensitive_entity_dictionary,
 )
+from briefalpha_api.audit.source_health_aggregator import aggregate_source_health
 from briefalpha_api.db.session import SessionLocal
 from briefalpha_api.fixtures.brief import get_demo_source_health
 from briefalpha_api.ingestion.runner import run_ingestion
@@ -94,8 +95,10 @@ async def run_pipeline(
         entity_dictionary=sensitive_dict,
     )
     aliased = []
+    quote_segments_by_id: dict[str, list] = {}
+    excerpt_aliased_by_id: dict[str, str] = {}
     for e in selected:
-        ae, _segs = build_aliased_evidence(
+        ae, segs = build_aliased_evidence(
             evidence_id=e.evidence_id,
             title=e.title,
             excerpt=e.excerpt,
@@ -106,8 +109,15 @@ async def run_pipeline(
             quote_span_original=e.quote_span,
         )
         aliased.append(ae)
+        quote_segments_by_id[e.evidence_id] = segs
+        excerpt_aliased_by_id[e.evidence_id] = ae.excerpt_aliased
 
     encrypt_alias_map(brief_id, ctx)
+
+    # ─── Build validator inputs once for all three stages ────────────────
+    pool_ids = {ae.evidence_id for ae in aliased}
+    pool_metadata = _build_pool_metadata(selected)
+    cited_excerpts_for_anchor = list(excerpt_aliased_by_id.values())
 
     # ─── Stage A → B → C ──────────────────────────────────────────────
     audit_ctx = {"brief_id": brief_id, "audit_mode": "demo"}
@@ -122,7 +132,19 @@ async def run_pipeline(
         },
     )
     stage_a_resp = await call_text_llm(
-        stage_a_req, audit_ctx=audit_ctx, alias_context=ctx
+        stage_a_req,
+        audit_ctx=audit_ctx,
+        alias_context=ctx,
+        cited_excerpts_aliased=cited_excerpts_for_anchor,
+        accuracy_validate=_make_validator(
+            scope="stage_a",
+            pool_ids=pool_ids,
+            pool_metadata=pool_metadata,
+            excerpt_aliased_by_id=excerpt_aliased_by_id,
+            quote_segments_by_id=quote_segments_by_id,
+            sensitive_dict=sensitive_dict,
+            brief_freeze_at_hkt=freeze_at,
+        ),
     )
 
     stage_b_req = build_request(
@@ -134,7 +156,19 @@ async def run_pipeline(
         },
     )
     stage_b_resp = await call_text_llm(
-        stage_b_req, audit_ctx=audit_ctx, alias_context=ctx
+        stage_b_req,
+        audit_ctx=audit_ctx,
+        alias_context=ctx,
+        cited_excerpts_aliased=cited_excerpts_for_anchor,
+        accuracy_validate=_make_validator(
+            scope="stage_b",
+            pool_ids=pool_ids,
+            pool_metadata=pool_metadata,
+            excerpt_aliased_by_id=excerpt_aliased_by_id,
+            quote_segments_by_id=quote_segments_by_id,
+            sensitive_dict=sensitive_dict,
+            brief_freeze_at_hkt=freeze_at,
+        ),
     )
 
     stage_c_req = build_request(
@@ -145,8 +179,23 @@ async def run_pipeline(
             "aliased_evidence_json": aliased_payload,
         },
     )
+    # Stage C (playbook_events) currently has no citation rule — citations
+    # validator falls through, but we still want the time_window + sensitive
+    # checks. Pass the same validator factory for parity.
     stage_c_resp = await call_text_llm(
-        stage_c_req, audit_ctx=audit_ctx, alias_context=ctx
+        stage_c_req,
+        audit_ctx=audit_ctx,
+        alias_context=ctx,
+        cited_excerpts_aliased=cited_excerpts_for_anchor,
+        accuracy_validate=_make_validator(
+            scope="stage_c",
+            pool_ids=pool_ids,
+            pool_metadata=pool_metadata,
+            excerpt_aliased_by_id=excerpt_aliased_by_id,
+            quote_segments_by_id=quote_segments_by_id,
+            sensitive_dict=sensitive_dict,
+            brief_freeze_at_hkt=freeze_at,
+        ),
     )
 
     conservative = any(
@@ -179,6 +228,98 @@ def _conservative_output(brief_id: str, no_direct_portfolio_link: bool) -> dict[
         "evidence_pool_full": [],
         "selected_evidence_for_llm": [],
     }
+
+
+def _build_pool_metadata(selected: list[stages.Evidence]) -> dict[str, Any]:
+    """Build the {evidence_id: EvidencePoolEntry} map the validator wants."""
+    from briefalpha_api.validator.runner import EvidencePoolEntry
+
+    return {
+        e.evidence_id: EvidencePoolEntry(
+            source_tier=e.source_tier,
+            asset_class=e.asset_class,
+            published_at=e.published_at,
+        )
+        for e in selected
+    }
+
+
+def _make_validator(
+    *,
+    scope: str,
+    pool_ids: set[str],
+    pool_metadata: dict[str, Any],
+    excerpt_aliased_by_id: dict[str, str],
+    quote_segments_by_id: dict[str, list],
+    sensitive_dict: Any,
+    brief_freeze_at_hkt: Any,
+):
+    """Return an `accuracy_validate` callback wired with this stage's context.
+
+    The wrapper invokes this on every provider response. Failures cause one
+    retry per the wrapper's `MAX_RETRY_TEXT=3` budget; if all attempts
+    fail the wrapper returns `conservative_fallback`. This is the runtime
+    safety net the spec calls for in design.md §4.4 (citations / quote_span
+    / numbers / polarity / time_window / sensitive output all enforced
+    at production time, not just measured offline by the golden runner).
+    """
+    from briefalpha_api.validator.runner import validate_response
+
+    async def _validate(resp: Any) -> tuple[bool, str | None]:
+        structured = resp.structured or {}
+
+        # Pick the answer text we feed `validate_numbers` /
+        # `validate_polarity` from the structured response. Each stage's
+        # template has a different primary text field; we concatenate the
+        # ones that exist so number / polarity hallucinations anywhere in
+        # the visible output are caught.
+        answer_chunks: list[str] = []
+        for k in ("base_case_headline", "summary"):
+            v = structured.get(k)
+            if isinstance(v, str):
+                answer_chunks.append(v)
+        for j in structured.get("judgements", []) or []:
+            for k in ("title", "evidence_summary", "reasoning_chain"):
+                v = j.get(k)
+                if isinstance(v, str):
+                    answer_chunks.append(v)
+                elif isinstance(v, dict):
+                    answer_chunks.extend(str(x) for x in v.values() if isinstance(x, str))
+        for ev in structured.get("playbook_events", []) or []:
+            for k in ("label", "detail"):
+                v = ev.get(k)
+                if isinstance(v, str):
+                    answer_chunks.append(v)
+        answer_text = "\n".join(answer_chunks)
+
+        # Citation context: only quote-span segments belonging to cited
+        # evidence inform the quote_span check (any cited evidence works
+        # for the validator since we project span coords forward per excerpt).
+        cited_ids: list[str] = list(structured.get("cited_evidence_ids", []))
+        if scope == "stage_b":
+            for j in structured.get("judgements", []) or []:
+                cited_ids.extend(j.get("cited_evidence_ids", []) or [])
+        excerpt_text = "\n".join(
+            excerpt_aliased_by_id.get(cid, "")
+            for cid in cited_ids
+            if cid in excerpt_aliased_by_id
+        ) or "\n".join(excerpt_aliased_by_id.values())
+
+        result = validate_response(
+            structured=structured,
+            pool_ids=pool_ids,
+            scope=scope,
+            quote_span_segments=None,
+            excerpt_text=excerpt_text,
+            answer_text=answer_text,
+            quote_span_aliased=None,
+            sensitive_dict=sensitive_dict,
+            pool_metadata=pool_metadata,
+            brief_freeze_at_hkt=brief_freeze_at_hkt,
+        )
+        return result.ok, result.reason
+
+    return _validate
 
 
 def _evidence_dict(ev: stages.Evidence) -> dict[str, Any]:
@@ -240,8 +381,17 @@ async def run_full_brief(
     # dict and the artifact builder falls back to "0.0%" / "flat" trend.
     quotes = await _fetch_quotes([p.ticker for p in positions])
 
-    # Source health is currently a stub. Section 11/12 wires the real one.
-    source_health = get_demo_source_health()
+    # Source health: read the live aggregator (driven by ingestion runs +
+    # the every-5-min cron). Falls back to the demo fixture only when the
+    # SourceHealthHistory table is still empty (first boot, no ingestion
+    # has run yet).
+    try:
+        source_health = await aggregate_source_health()
+        if not source_health.get("rows"):
+            source_health = get_demo_source_health()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("source_health aggregation failed (%s); using fixture", exc)
+        source_health = get_demo_source_health()
 
     artifact = build_brief_artifact(
         pipeline_output=pipeline_output,

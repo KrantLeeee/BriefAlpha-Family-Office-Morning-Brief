@@ -21,16 +21,15 @@ k=3 / cold_start failure MUST NOT trigger conservative — it goes through
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from typing import Any
 
 from briefalpha_api.anonymization.alias import AliasContext
 from briefalpha_api.anonymization.reverse import reverse_alias
+from briefalpha_api.audit import AuditRecord, record_audit_async
 from briefalpha_api.llm import providers
 from briefalpha_api.llm.schema import LlmRequest, LlmResponse, ProviderError
 from briefalpha_api.llm.sensitive_scan import (
-    SensitiveInputViolation,
     scan_input_for_real_tickers,
     scan_output_for_sensitive_terms,
     scrub_output,
@@ -61,11 +60,10 @@ def _retry_budget(scope: str) -> int:
     return MAX_RETRY_TEXT
 
 
-async def _audit_pre(req: LlmRequest, *, audit_ctx: dict) -> dict:
-    """Audit-write pre-hook. The full implementation lives in
-    `briefalpha_api.audit`; we keep a tiny stub here so this module remains
-    free of cyclic imports."""
-    record = {
+def _audit_pre(req: LlmRequest, *, audit_ctx: dict) -> dict:
+    """Capture pre-call metadata; the actual DB write happens in
+    `_audit_post` so we have one row per call (success or failure)."""
+    return {
         "request_hash": _request_hash(req),
         "scope": req.scope,
         "call_type": req.call_type,
@@ -73,21 +71,31 @@ async def _audit_pre(req: LlmRequest, *, audit_ctx: dict) -> dict:
         "audit_mode": audit_ctx.get("audit_mode", "demo"),
         "brief_id": audit_ctx.get("brief_id"),
     }
-    log.info("audit.pre %s", record)
-    return record
 
 
-async def _audit_post(pre: dict, resp: LlmResponse | None, *, failure_state: str | None) -> None:
-    record = {
-        **pre,
-        "response_hash": _response_hash(resp) if resp else None,
-        "provider": resp.provider if resp else None,
-        "model": resp.model if resp else None,
-        "latency_ms": resp.latency_ms if resp else None,
-        "failure_state": failure_state,
-        "cited_evidence_ids": resp.cited_evidence_ids if resp else [],
-    }
-    log.info("audit.post %s", record)
+async def _audit_post(
+    pre: dict,
+    resp: LlmResponse | None,
+    *,
+    failure_state: str | None,
+    accuracy_validation_passed: bool | None,
+) -> None:
+    rec = AuditRecord(
+        request_hash=pre["request_hash"],
+        response_hash=_response_hash(resp) if resp else None,
+        scope=pre["scope"],
+        cited_evidence_ids=list(resp.cited_evidence_ids) if resp else [],
+        accuracy_validation_passed=accuracy_validation_passed,
+        call_type=pre["call_type"],
+        provider=resp.provider if resp else None,
+        model=resp.model if resp else None,
+        template_version=pre["template_version"],
+        latency_ms=resp.latency_ms if resp else None,
+        failure_state=failure_state,
+        audit_mode=pre["audit_mode"],
+        brief_id=pre["brief_id"],
+    )
+    await record_audit_async(rec)
 
 
 # ---------------------------------------------------------------------------
@@ -107,13 +115,14 @@ async def call_text_llm(
     if alias_context is not None:
         # Input sensitive scan: real tickers MUST NOT appear in the request.
         scan_input_for_real_tickers(req.model_dump(), alias_context)
-    pre = await _audit_pre(req, audit_ctx=audit_ctx)
+    pre = _audit_pre(req, audit_ctx=audit_ctx)
 
     settings = get_settings()
     provider = settings.llm_provider
 
     last_resp: LlmResponse | None = None
     failure: str | None = None
+    last_validation: bool | None = None
     for attempt in range(_retry_budget(req.scope)):
         try:
             resp = await providers.call_text_provider(req, provider=provider)
@@ -145,6 +154,7 @@ async def call_text_llm(
         # Accuracy validation (caller-supplied)
         if accuracy_validate is not None and resp.structured is not None:
             ok, reason = await accuracy_validate(resp)
+            last_validation = bool(ok)
             if not ok:
                 failure = f"accuracy:{reason}"
                 if attempt + 1 < _retry_budget(req.scope):
@@ -162,10 +172,20 @@ async def call_text_llm(
             )
             resp = resp.model_copy(update={"text": r.text})
 
-        await _audit_post(pre, resp, failure_state=None)
+        await _audit_post(
+            pre,
+            resp,
+            failure_state=None,
+            accuracy_validation_passed=last_validation if accuracy_validate is not None else None,
+        )
         return resp
 
-    await _audit_post(pre, last_resp, failure_state=failure or "all_attempts_failed")
+    await _audit_post(
+        pre,
+        last_resp,
+        failure_state=failure or "all_attempts_failed",
+        accuracy_validation_passed=last_validation if accuracy_validate is not None else None,
+    )
     return conservative_fallback(req.scope)
 
 
@@ -183,11 +203,16 @@ async def call_vision_llm(
             for k, v in audit_ctx.items()
             if k not in {"user_id", "session_id", "account_id", "portfolio_id"}
         }
-    pre = await _audit_pre(req, audit_ctx=audit_ctx)
+    pre = _audit_pre(req, audit_ctx=audit_ctx)
     try:
-        resp = await providers.call_vision_provider(req, provider="anthropic")
+        resp = await providers.call_vision_provider(req, provider="openai")
     except ProviderError as exc:
-        await _audit_post(pre, None, failure_state=f"vision_provider_error:{exc}")
+        await _audit_post(
+            pre,
+            None,
+            failure_state=f"vision_provider_error:{exc}",
+            accuracy_validation_passed=None,
+        )
         return LlmResponse(
             text="caption_unavailable",
             provider="stub",
@@ -196,7 +221,7 @@ async def call_vision_llm(
             latency_ms=0,
             finish_reason="provider_error",
         )
-    await _audit_post(pre, resp, failure_state=None)
+    await _audit_post(pre, resp, failure_state=None, accuracy_validation_passed=None)
     return resp
 
 

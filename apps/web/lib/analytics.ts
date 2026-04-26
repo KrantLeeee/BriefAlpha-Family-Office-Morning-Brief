@@ -5,7 +5,7 @@
  * are stored alongside audit_log so admin diagnostics can query them.
  * Never serialize to localStorage / cookies / external endpoints.
  */
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 export interface AnalyticsEvent {
   event: string;
@@ -40,12 +40,19 @@ export function track(evt: AnalyticsEvent): void {
 /**
  * React helper that fires a `mount` event on first render and the supplied
  * `onUnmount` event with `duration_ms` set when the component unmounts.
+ *
+ * The deps array uses a memoized JSON serialization of `payload` because
+ * tracked sessions intentionally re-fire whenever any payload field
+ * changes; depending on the object reference would re-fire on every
+ * render, while listing each field would force callers to know our
+ * implementation. The memo keeps the rule clean for exhaustive-deps.
  */
 export function useTrackedSession(
   enterEventName: string,
   exitEventName: string,
   payload: Omit<AnalyticsEvent, "event" | "duration_ms">
 ) {
+  const payloadKey = useMemo(() => JSON.stringify(payload), [payload]);
   useEffect(() => {
     const enteredAt = Date.now();
     track({ event: enterEventName, ...payload });
@@ -56,5 +63,6 @@ export function useTrackedSession(
         duration_ms: Date.now() - enteredAt,
       });
     };
-  }, [enterEventName, exitEventName, JSON.stringify(payload)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enterEventName, exitEventName, payloadKey]);
 }

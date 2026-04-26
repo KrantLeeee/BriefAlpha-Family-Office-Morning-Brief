@@ -35,6 +35,7 @@ if [[ ! -f "$KEYS_JSON" ]]; then
 {
   "anthropic": "sk-ant-replace-me",
   "openai": "sk-replace-me",
+  "vision_openai": "sk-vision-replace-me",
   "vision_anthropic": "sk-ant-vision-replace-me"
 }
 JSON

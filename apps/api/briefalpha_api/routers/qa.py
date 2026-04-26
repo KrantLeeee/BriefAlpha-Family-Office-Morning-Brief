@@ -1,13 +1,17 @@
-"""POST /api/qa.
+"""POST /api/qa — anonymized question-answering against today's evidence pool.
 
-Stub: until search + LLM wrapper land, returns a deterministic stub answer.
+The router is a thin adapter: validation + service invocation + response
+shape. The actual safe pipeline lives in `briefalpha_api.qa.service`.
 """
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+
+from briefalpha_api.db.session import get_session
+from briefalpha_api.qa import run_qa
 
 router = APIRouter()
 
@@ -26,25 +30,25 @@ class QaCitation(BaseModel):
 
 class QaResponse(BaseModel):
     answer: str
-    cited_evidence_ids: list[str]
-    citations: list[QaCitation]
+    cited_evidence_ids: list[str] = []
+    citations: list[QaCitation] = []
     insufficient_evidence: bool = False
     validation_passed: bool = True
 
 
 @router.post("/qa", response_model=QaResponse)
-async def qa(req: QaRequest) -> QaResponse:
-    # Pipeline / wrapper not yet implemented — return a placeholder so the
-    # frontend QA flow can be exercised end-to-end without LLM.
+async def qa(req: QaRequest, session=Depends(get_session)) -> QaResponse:
+    result = await run_qa(
+        session,
+        brief_id=req.brief_id,
+        scope=req.scope,
+        scope_target_id=req.scope_target_id,
+        question=req.question,
+    )
     return QaResponse(
-        answer=(
-            "（demo 占位）该回答将在 LLM wrapper + accuracy_validator 启用后由 "
-            "evidence-search 提供，引用 evidence_id 出现在抽屉证据卡上。"
-        ),
-        cited_evidence_ids=["ev_nvda_8k", "ev_reuters_bbg"],
-        citations=[
-            QaCitation(evidence_id="ev_nvda_8k", label="① SEC EDGAR · 04-24 20:15 EDT"),
-            QaCitation(evidence_id="ev_reuters_bbg", label="② 路透 vs 彭博 · ⚠ 冲突"),
-        ],
-        validation_passed=True,
+        answer=result.answer,
+        cited_evidence_ids=result.cited_evidence_ids,
+        citations=[QaCitation(**c) for c in result.citations],
+        insufficient_evidence=result.insufficient_evidence,
+        validation_passed=result.validation_passed,
     )

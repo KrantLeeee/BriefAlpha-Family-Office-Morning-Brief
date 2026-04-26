@@ -47,5 +47,9 @@ research_pdfs/
 *.sqlite3
 *.db
 
+# Redis runtime persistence
+*.rdb
+dump.rdb
+
 # Pencil scratch
 .pencil-cache/

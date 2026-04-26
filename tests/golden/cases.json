@@ -1,13 +1,17 @@
 {
-  "version": "2026-04-25.2",
-  "description": "Curated golden cases for BriefAlpha pipeline regression. Each case carries an evidence_pool_input snapshot (synthetic RawItem-shaped dicts) + expected metrics. The runner in `tests/golden/runner.py` feeds the pool into the 9 pipeline stages, calls Stage A/B/C via the LLM wrapper (stub provider in CI), runs the validator on each LLM response, and emits an aggregate metrics report at `tests/golden/golden_metrics.json`.",
+  "version": "2026-04-26.1",
+  "description": "Curated golden cases for BriefAlpha pipeline regression. Each case carries an evidence_pool_input snapshot (synthetic RawItem-shaped dicts) + expected metrics. The runner in `tests/golden/runner.py` feeds the pool into the 9 pipeline stages, calls Stage A/B/C via the LLM wrapper (stub provider in CI), runs the validator on each LLM response, and emits an aggregate metrics report at `tests/golden/golden_metrics.json`. Regenerate this file with `python tests/golden/generate_cases.py`.",
   "cases": [
     {
       "id": "earnings_beat_clean",
       "scenario": "earnings",
       "summary": "NVDA earnings beat reported by 4 sources, all directional alignment.",
       "evidence_count": 4,
-      "expected": { "judgement_count": 1, "polarity": "positive", "conflict": false },
+      "expected": {
+        "judgement_count": 1,
+        "polarity": "positive",
+        "conflict": false
+      },
       "evidence_pool_input": [
         {
           "source_name": "sec_edgar",
@@ -15,7 +19,9 @@
           "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001045810&type=8-K",
           "title": "NVDA 8-K: Q4 revenue beat consensus by 5%",
           "excerpt": "NVIDIA reported revenue of US$22.1B, beating consensus of US$21.0B by 5%. Data center segment revenue rose 18% sequentially. Guidance raised for Q1.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:05:00+00:00",
           "fetched_at": "2026-04-25T00:30:00+00:00"
@@ -26,7 +32,9 @@
           "source_url": "https://www.reuters.com/technology/nvidia-q4-results",
           "title": "Nvidia beats forecasts, raises guidance",
           "excerpt": "Reuters: Nvidia beat Q4 expectations and raised forward guidance, citing strong AI infrastructure demand. Shares up 6% afterhours.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:30:00+00:00",
           "fetched_at": "2026-04-25T00:31:00+00:00"
@@ -37,7 +45,9 @@
           "source_url": "https://www.bloomberg.com/news/nvda-q4-beat",
           "title": "Nvidia beat: data-center revenue up 18%",
           "excerpt": "Bloomberg: data center revenue rose 18% sequentially, beating Street estimates. Margins expanded. Q1 outlook raised.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:35:00+00:00",
           "fetched_at": "2026-04-25T00:32:00+00:00"
@@ -48,7 +58,9 @@
           "source_url": "https://finance.yahoo.com/quote/NVDA",
           "title": "NVDA after-hours +6.0%",
           "excerpt": "Last 6%; previous close $920. Volume above 30-day average. Sentiment positive on guidance raise.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:45:00+00:00",
           "fetched_at": "2026-04-25T00:33:00+00:00"
@@ -60,7 +72,11 @@
       "scenario": "earnings",
       "summary": "NVDA Q1 guidance cut. Reuters quotes 8%, Bloomberg quotes 10% — flagged conflict.",
       "evidence_count": 4,
-      "expected": { "judgement_count": 1, "conflict": true, "requires_review": true },
+      "expected": {
+        "judgement_count": 1,
+        "conflict": true,
+        "requires_review": true
+      },
       "evidence_pool_input": [
         {
           "source_name": "sec_edgar",
@@ -68,7 +84,9 @@
           "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001045810&type=8-K",
           "title": "NVDA 8-K: Q1 guidance cut",
           "excerpt": "NVIDIA cut Q1 data-center revenue guidance citing supply constraints. Magnitude undisclosed in 8-K.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:00:00+00:00",
           "fetched_at": "2026-04-25T00:30:00+00:00"
@@ -79,7 +97,9 @@
           "source_url": "https://www.reuters.com/technology/nvidia-cuts-q1",
           "title": "Nvidia cuts Q1 guidance by 8%",
           "excerpt": "Reuters: Nvidia cut Q1 data-center revenue outlook by 8% versus consensus, citing supply constraints. Shares down afterhours.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:30:00+00:00",
           "fetched_at": "2026-04-25T00:31:00+00:00"
@@ -90,7 +110,9 @@
           "source_url": "https://www.bloomberg.com/news/nvda-q1-warn",
           "title": "Nvidia trims Q1 outlook ~10%",
           "excerpt": "Bloomberg: Nvidia trimmed Q1 data-center outlook approximately 10% — magnitude differs from Reuters' 8% read.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:35:00+00:00",
           "fetched_at": "2026-04-25T00:32:00+00:00"
@@ -101,7 +123,9 @@
           "source_url": "https://finance.yahoo.com/quote/NVDA",
           "title": "NVDA after-hours -6.0%",
           "excerpt": "Last -6%; previous close $920. Volume well above 30-day average; selling concentrated post-guidance.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:45:00+00:00",
           "fetched_at": "2026-04-25T00:33:00+00:00"
@@ -113,7 +137,10 @@
       "scenario": "policy",
       "summary": "Williams 'mildly restrictive' speech; rates desk reaction in 3 sources.",
       "evidence_count": 3,
-      "expected": { "judgement_count": 1, "asset_class": "us_treasury" },
+      "expected": {
+        "judgement_count": 1,
+        "asset_class": "us_treasury"
+      },
       "evidence_pool_input": [
         {
           "source_name": "fed_speeches",
@@ -132,7 +159,9 @@
           "source_url": "https://www.reuters.com/markets/williams-mildly-restrictive",
           "title": "Treasuries sell off after Williams comments",
           "excerpt": "Reuters: 10-year UST yield rose 6 bps to 4.45%; market pricing one more hike with 38% probability.",
-          "detected_tickers": ["TLT"],
+          "detected_tickers": [
+            "TLT"
+          ],
           "asset_class": "us_treasury",
           "published_at": "2026-04-24T19:00:00+00:00",
           "fetched_at": "2026-04-25T00:31:00+00:00"
@@ -143,7 +172,9 @@
           "source_url": "https://finance.yahoo.com/quote/TLT",
           "title": "TLT close -1.2%",
           "excerpt": "TLT closed -1.2%; long-end UST under pressure on hawkish Williams.",
-          "detected_tickers": ["TLT"],
+          "detected_tickers": [
+            "TLT"
+          ],
           "asset_class": "us_treasury",
           "published_at": "2026-04-24T20:00:00+00:00",
           "fetched_at": "2026-04-25T00:32:00+00:00"
@@ -155,7 +186,9 @@
       "scenario": "calm_day",
       "summary": "Light news flow; expected output reverts to base_case + summary only.",
       "evidence_count": 8,
-      "expected": { "judgement_count": 0 },
+      "expected": {
+        "judgement_count": 0
+      },
       "evidence_pool_input": [
         {
           "source_name": "yfinance",
@@ -163,7 +196,9 @@
           "source_url": "https://finance.yahoo.com/quote/SPY",
           "title": "SPY +0.10%",
           "excerpt": "Index flat; volume light; no major sector moves.",
-          "detected_tickers": ["SPY"],
+          "detected_tickers": [
+            "SPY"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:00:00+00:00",
           "fetched_at": "2026-04-25T00:30:00+00:00"
@@ -186,7 +221,9 @@
       "scenario": "breaking",
       "summary": "Single-source breaking — should mark requires_review until corroborated.",
       "evidence_count": 1,
-      "expected": { "requires_review": true },
+      "expected": {
+        "requires_review": true
+      },
       "evidence_pool_input": [
         {
           "source_name": "newsapi",
@@ -194,7 +231,9 @@
           "source_url": "https://newsapi.org/breaking/nvda-fab-fire",
           "title": "Reports of fab fire affecting NVDA supplier",
           "excerpt": "Single-source report of a fab fire affecting an NVDA supplier; details unconfirmed; awaiting corroboration.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-25T00:15:00+00:00",
           "fetched_at": "2026-04-25T00:30:00+00:00"
@@ -205,7 +244,9 @@
           "source_url": "https://finance.yahoo.com/quote/NVDA",
           "title": "NVDA -0.8% afterhours",
           "excerpt": "Light afterhours move; volume below average.",
-          "detected_tickers": ["NVDA"],
+          "detected_tickers": [
+            "NVDA"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-25T00:20:00+00:00",
           "fetched_at": "2026-04-25T00:30:00+00:00"
@@ -217,7 +258,9 @@
       "scenario": "macro",
       "summary": "PCE prints in line; macro_pulse only.",
       "evidence_count": 6,
-      "expected": { "judgement_count": 0 },
+      "expected": {
+        "judgement_count": 0
+      },
       "evidence_pool_input": [
         {
           "source_name": "bls_release",
@@ -248,7 +291,10 @@
       "scenario": "hkex",
       "summary": "Tencent buyback authorization; should pull HKEX 7:30 HKT filing as primary.",
       "evidence_count": 2,
-      "expected": { "judgement_count": 1, "primary_source_tier": "official" },
+      "expected": {
+        "judgement_count": 1,
+        "primary_source_tier": "official"
+      },
       "evidence_pool_input": [
         {
           "source_name": "hkex_filings",
@@ -256,7 +302,9 @@
           "source_url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0425/2026042500201.pdf",
           "title": "0700.HK: enlargement of share buyback authorisation",
           "excerpt": "0700.HK announces enlargement of share buyback authorisation by 50%; aggregate value expanded to HK$200B.",
-          "detected_tickers": ["0700.HK"],
+          "detected_tickers": [
+            "0700.HK"
+          ],
           "asset_class": "hk_equity",
           "published_at": "2026-04-24T23:30:00+00:00",
           "fetched_at": "2026-04-25T00:00:00+00:00"
@@ -267,7 +315,9 @@
           "source_url": "https://www.reuters.com/markets/asia/tencent-buyback",
           "title": "Tencent expands buyback authorisation",
           "excerpt": "Reuters: Tencent enlarged buyback authorisation; supportive for HK internet sector valuation.",
-          "detected_tickers": ["0700.HK"],
+          "detected_tickers": [
+            "0700.HK"
+          ],
           "asset_class": "hk_equity",
           "published_at": "2026-04-25T00:05:00+00:00",
           "fetched_at": "2026-04-25T00:30:00+00:00"
@@ -279,7 +329,9 @@
       "scenario": "sec",
       "summary": "Revenue warning 8-K — official tier wins primary slot.",
       "evidence_count": 3,
-      "expected": { "primary_source_tier": "official" },
+      "expected": {
+        "primary_source_tier": "official"
+      },
       "evidence_pool_input": [
         {
           "source_name": "sec_edgar",
@@ -287,7 +339,9 @@
           "source_url": "https://www.sec.gov/Archives/edgar/data/0000320193/8-k-revenue-warning",
           "title": "AAPL 8-K: revenue warning",
           "excerpt": "AAPL filed an 8-K disclosing a Q3 revenue shortfall vs. internal plan; cites currency and demand softness.",
-          "detected_tickers": ["AAPL"],
+          "detected_tickers": [
+            "AAPL"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:30:00+00:00",
           "fetched_at": "2026-04-25T00:30:00+00:00"
@@ -298,7 +352,9 @@
           "source_url": "https://www.reuters.com/technology/aapl-revenue-warning",
           "title": "Apple warns on Q3 revenue",
           "excerpt": "Reuters: Apple warned on Q3 revenue, citing currency and softer demand. Shares down afterhours.",
-          "detected_tickers": ["AAPL"],
+          "detected_tickers": [
+            "AAPL"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-24T20:45:00+00:00",
           "fetched_at": "2026-04-25T00:31:00+00:00"
@@ -310,7 +366,10 @@
       "scenario": "research_pdf",
       "summary": "Goldman PDF mentions BIDU (external) — pool ingests with warning, no universe expansion.",
       "evidence_count": 18,
-      "expected": { "external_ticker_warning": true, "auto_expand_universe": false },
+      "expected": {
+        "external_ticker_warning": true,
+        "auto_expand_universe": false
+      },
       "evidence_pool_input": [
         {
           "source_name": "research_pdf",
@@ -318,7 +377,9 @@
           "source_url": "file://research_pdfs/goldman_china_internet.pdf#page=4",
           "title": "Goldman China Internet — BIDU initiation",
           "excerpt": "Goldman initiates BIDU at Buy with HK$165 target; cross-reads bullish for tencent and Alibaba ecosystems.",
-          "detected_tickers": ["BIDU"],
+          "detected_tickers": [
+            "BIDU"
+          ],
           "asset_class": "us_equity",
           "published_at": "2026-04-23T09:00:00+00:00",
           "fetched_at": "2026-04-25T00:00:00+00:00"
@@ -333,6 +394,1887 @@
           "asset_class": "hk_equity",
           "published_at": "2026-04-23T09:00:00+00:00",
           "fetched_at": "2026-04-25T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "earnings_aapl_inline",
+      "scenario": "earnings",
+      "summary": "AAPL Q2 in-line; muted reaction.",
+      "evidence_count": 4,
+      "expected": {
+        "judgement_count": 1,
+        "polarity": "neutral",
+        "conflict": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&q=AAPL",
+          "title": "AAPL 8-K: quarterly result",
+          "excerpt": "AAPL reported Q2 revenue of US$95.4B, in line with consensus US$95.0B; iPhone segment flat YoY; services +12%.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/aapl-q",
+          "title": "AAPL neutral: Reuters",
+          "excerpt": "Reuters: Apple Q2 in line; services growth at 12%; muted afterhours reaction.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/aapl-q",
+          "title": "AAPL neutral: Bloomberg",
+          "excerpt": "Bloomberg: Apple in line on revenue; iPhone segment flat; afterhours mixed.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/AAPL",
+          "title": "AAPL after-hours +0.3%",
+          "excerpt": "Last +0.3%; volume above 30-day average. Move concentrated post-results.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "earnings_msft_beat",
+      "scenario": "earnings",
+      "summary": "MSFT cloud revenue beats — guidance raised.",
+      "evidence_count": 4,
+      "expected": {
+        "judgement_count": 1,
+        "polarity": "positive",
+        "conflict": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&q=MSFT",
+          "title": "MSFT 8-K: quarterly result",
+          "excerpt": "MSFT reported revenue of US$66.5B, beating consensus US$62.0B by 7%. Azure +29% YoY. Q4 guidance raised.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/msft-q",
+          "title": "MSFT positive: Reuters",
+          "excerpt": "Reuters: Microsoft Azure +29%; raises Q4 guidance.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/msft-q",
+          "title": "MSFT positive: Bloomberg",
+          "excerpt": "Bloomberg: Microsoft tops on cloud growth; outlook raised.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/MSFT",
+          "title": "MSFT after-hours +4.2%",
+          "excerpt": "Last +4.2%; volume above 30-day average. Move concentrated post-results.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "earnings_tsla_miss",
+      "scenario": "earnings",
+      "summary": "TSLA delivery miss — margins compressed.",
+      "evidence_count": 4,
+      "expected": {
+        "judgement_count": 1,
+        "polarity": "negative",
+        "conflict": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&q=TSLA",
+          "title": "TSLA 8-K: quarterly result",
+          "excerpt": "TSLA reported deliveries 432K vs consensus 490K, missing by 12%. Auto gross margin 14.3%, below 16% Street.",
+          "detected_tickers": [
+            "TSLA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/tsla-q",
+          "title": "TSLA negative: Reuters",
+          "excerpt": "Reuters: Tesla delivery miss; gross margin 14.3% disappoints.",
+          "detected_tickers": [
+            "TSLA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/tsla-q",
+          "title": "TSLA negative: Bloomberg",
+          "excerpt": "Bloomberg: Tesla deliveries miss by 12%; margin compression continues.",
+          "detected_tickers": [
+            "TSLA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/TSLA",
+          "title": "TSLA after-hours -8.5%",
+          "excerpt": "Last -8.5%; volume above 30-day average. Move concentrated post-results.",
+          "detected_tickers": [
+            "TSLA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "earnings_googl_beat",
+      "scenario": "earnings",
+      "summary": "GOOGL ads + cloud beat; afterhours +5%.",
+      "evidence_count": 4,
+      "expected": {
+        "judgement_count": 1,
+        "polarity": "positive",
+        "conflict": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&q=GOOGL",
+          "title": "GOOGL 8-K: quarterly result",
+          "excerpt": "GOOGL reported revenue US$95.0B beating US$91.5B by 4%. Ad revenue +14% YoY; Cloud +28%.",
+          "detected_tickers": [
+            "GOOGL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/googl-q",
+          "title": "GOOGL positive: Reuters",
+          "excerpt": "Reuters: Alphabet ads +14%, cloud +28%; beat consensus.",
+          "detected_tickers": [
+            "GOOGL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/googl-q",
+          "title": "GOOGL positive: Bloomberg",
+          "excerpt": "Bloomberg: Alphabet ad and cloud strength drive beat.",
+          "detected_tickers": [
+            "GOOGL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/GOOGL",
+          "title": "GOOGL after-hours +5.0%",
+          "excerpt": "Last +5.0%; volume above 30-day average. Move concentrated post-results.",
+          "detected_tickers": [
+            "GOOGL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "earnings_meta_inline",
+      "scenario": "earnings",
+      "summary": "META in line; capex guide raised.",
+      "evidence_count": 4,
+      "expected": {
+        "judgement_count": 1,
+        "polarity": "neutral",
+        "conflict": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&q=META",
+          "title": "META 8-K: quarterly result",
+          "excerpt": "META reported revenue US$42.0B in line; capex guide raised to US$80B for 2026 — AI infrastructure build-out.",
+          "detected_tickers": [
+            "META"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/meta-q",
+          "title": "META neutral: Reuters",
+          "excerpt": "Reuters: Meta in line on revenue; capex raised.",
+          "detected_tickers": [
+            "META"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/meta-q",
+          "title": "META neutral: Bloomberg",
+          "excerpt": "Bloomberg: Meta capex guide raised; revenue in line.",
+          "detected_tickers": [
+            "META"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/META",
+          "title": "META after-hours -1.0%",
+          "excerpt": "Last -1.0%; volume above 30-day average. Move concentrated post-results.",
+          "detected_tickers": [
+            "META"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "earnings_amd_beat",
+      "scenario": "earnings",
+      "summary": "AMD data center revenue beats; AI accelerator commentary positive.",
+      "evidence_count": 4,
+      "expected": {
+        "judgement_count": 1,
+        "polarity": "positive",
+        "conflict": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&q=AMD",
+          "title": "AMD 8-K: quarterly result",
+          "excerpt": "AMD reported revenue US$7.0B beating US$6.6B by 6%. MI300 ramp on track; data center +51% YoY.",
+          "detected_tickers": [
+            "AMD"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/amd-q",
+          "title": "AMD positive: Reuters",
+          "excerpt": "Reuters: AMD data center +51%; MI300 demand strong.",
+          "detected_tickers": [
+            "AMD"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/amd-q",
+          "title": "AMD positive: Bloomberg",
+          "excerpt": "Bloomberg: AMD beat on data center; AI accelerator commentary upbeat.",
+          "detected_tickers": [
+            "AMD"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/AMD",
+          "title": "AMD after-hours +4.8%",
+          "excerpt": "Last +4.8%; volume above 30-day average. Move concentrated post-results.",
+          "detected_tickers": [
+            "AMD"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "policy_powell_cautious",
+      "scenario": "policy",
+      "summary": "Powell policy speech; rates desk reaction.",
+      "evidence_count": 3,
+      "expected": {
+        "judgement_count": 1,
+        "asset_class": "us_treasury"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "fed_speeches",
+          "source_tier": "official",
+          "source_url": "https://www.federalreserve.gov/speeches/powell",
+          "title": "Powell: monetary policy outlook",
+          "excerpt": "Powell stressed patience: 'we will be careful' before adjusting policy further; data-dependent posture maintained.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T18:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/powell-speech",
+          "title": "USTs react to Powell comments",
+          "excerpt": "Reuters: 10y UST -3 bps to 4.40%; market reads Powell as marginally dovish vs Williams.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/TLT",
+          "title": "TLT moves -3 bps in yield",
+          "excerpt": "TLT yield -3 bps; long-end pressure.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "policy_logan_hawkish",
+      "scenario": "policy",
+      "summary": "Logan policy speech; rates desk reaction.",
+      "evidence_count": 3,
+      "expected": {
+        "judgement_count": 1,
+        "asset_class": "us_treasury"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "fed_speeches",
+          "source_tier": "official",
+          "source_url": "https://www.federalreserve.gov/speeches/logan",
+          "title": "Logan: monetary policy outlook",
+          "excerpt": "Dallas Fed's Logan said additional tightening 'remains an option' and warned core services inflation 'sticky'.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T18:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/logan-speech",
+          "title": "USTs react to Logan comments",
+          "excerpt": "Reuters: 2y UST +5 bps to 4.92%; pricing for one more hike rises to 42% probability.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/TLT",
+          "title": "TLT moves +5 bps in yield",
+          "excerpt": "TLT yield +5 bps; long-end pressure.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "policy_daly_dovish",
+      "scenario": "policy",
+      "summary": "Daly policy speech; rates desk reaction.",
+      "evidence_count": 3,
+      "expected": {
+        "judgement_count": 1,
+        "asset_class": "us_treasury"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "fed_speeches",
+          "source_tier": "official",
+          "source_url": "https://www.federalreserve.gov/speeches/daly",
+          "title": "Daly: monetary policy outlook",
+          "excerpt": "SF Fed's Daly: real rates already restrictive; further hikes risk overshooting on labor market.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T18:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/daly-speech",
+          "title": "USTs react to Daly comments",
+          "excerpt": "Reuters: USTs rally; 10y -4 bps; rate cuts pulled forward to early Q4.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/TLT",
+          "title": "TLT moves -4 bps in yield",
+          "excerpt": "TLT yield -4 bps; long-end pressure.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "policy_ecb_hold",
+      "scenario": "policy",
+      "summary": "Lagarde policy speech; rates desk reaction.",
+      "evidence_count": 3,
+      "expected": {
+        "judgement_count": 1,
+        "asset_class": "us_treasury"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "fed_speeches",
+          "source_tier": "official",
+          "source_url": "https://www.federalreserve.gov/speeches/lagarde",
+          "title": "Lagarde: monetary policy outlook",
+          "excerpt": "ECB holds rates at 4.0%; Lagarde emphasizes data-dependence and no pre-commitment to cut path.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T18:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/lagarde-speech",
+          "title": "USTs react to Lagarde comments",
+          "excerpt": "Reuters: bunds rally on hold-and-wait read; EUR/USD steady; ECB-priced cuts unchanged.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/TLT",
+          "title": "TLT moves -2 bps in yield",
+          "excerpt": "TLT yield -2 bps; long-end pressure.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "policy_boe_cut_signal",
+      "scenario": "policy",
+      "summary": "Bailey policy speech; rates desk reaction.",
+      "evidence_count": 3,
+      "expected": {
+        "judgement_count": 1,
+        "asset_class": "us_treasury"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "fed_speeches",
+          "source_tier": "official",
+          "source_url": "https://www.federalreserve.gov/speeches/bailey",
+          "title": "Bailey: monetary policy outlook",
+          "excerpt": "BOE's Bailey signals UK labor market easing supports near-term cut path; growth still subdued.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T18:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/bailey-speech",
+          "title": "USTs react to Bailey comments",
+          "excerpt": "Reuters: 10y gilts -8 bps; sterling weakens on cut signal; CPI projection unchanged.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/TLT",
+          "title": "TLT moves -8 bps in yield",
+          "excerpt": "TLT yield -8 bps; long-end pressure.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "calm_day_friday_summer",
+      "scenario": "calm_day",
+      "summary": "Quiet session in US; no priority judgments expected.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 0
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/SPY",
+          "title": "SPY ±0.05%",
+          "excerpt": "US: index little changed; sector dispersion minimal; no notable single-stock movers.",
+          "detected_tickers": [
+            "SPY"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/quiet",
+          "title": "US closes near unchanged",
+          "excerpt": "Friday summer-doldrums session; volume 30% below 30-day average; Russell 2000 +0.04%.",
+          "detected_tickers": [],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "calm_day_asia_holiday",
+      "scenario": "calm_day",
+      "summary": "Quiet session in Asia; no priority judgments expected.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 0
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/SPY",
+          "title": "SPY ±0.05%",
+          "excerpt": "Asia: index little changed; sector dispersion minimal; no notable single-stock movers.",
+          "detected_tickers": [
+            "SPY"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/quiet",
+          "title": "Asia closes near unchanged",
+          "excerpt": "Asian session muted on Tokyo holiday; HSI +0.2%; KOSPI -0.1%; HSCEI flat.",
+          "detected_tickers": [],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "calm_day_pre_fomc",
+      "scenario": "calm_day",
+      "summary": "Quiet session in US; no priority judgments expected.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 0
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/SPY",
+          "title": "SPY ±0.05%",
+          "excerpt": "US: index little changed; sector dispersion minimal; no notable single-stock movers.",
+          "detected_tickers": [
+            "SPY"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/quiet",
+          "title": "US closes near unchanged",
+          "excerpt": "Pre-FOMC session; SPX -0.05%; positioning light into tomorrow's release.",
+          "detected_tickers": [],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "calm_day_post_holiday",
+      "scenario": "calm_day",
+      "summary": "Quiet session in US; no priority judgments expected.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 0
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/SPY",
+          "title": "SPY ±0.05%",
+          "excerpt": "US: index little changed; sector dispersion minimal; no notable single-stock movers.",
+          "detected_tickers": [
+            "SPY"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/quiet",
+          "title": "US closes near unchanged",
+          "excerpt": "Post-holiday session; light institutional flow; rate-sensitives mixed.",
+          "detected_tickers": [],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "breaking_aapl_recall",
+      "scenario": "breaking",
+      "summary": "Single-source breaking on AAPL; should mark requires_review.",
+      "evidence_count": 2,
+      "expected": {
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "newsapi",
+          "source_tier": "news",
+          "source_url": "https://newsapi.org/breaking/aapl-breaking_aapl_recall",
+          "title": "Reports of AAPL device recall — battery defect",
+          "excerpt": "Single-source claim of battery-defect recall in latest iPhone batch; manufacturer not yet commented; awaiting corroboration.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:15:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/AAPL",
+          "title": "AAPL -1.0% afterhours",
+          "excerpt": "Afterhours light volume move; awaiting corroboration.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:20:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "breaking_msft_outage",
+      "scenario": "breaking",
+      "summary": "Single-source breaking on MSFT; should mark requires_review.",
+      "evidence_count": 2,
+      "expected": {
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "newsapi",
+          "source_tier": "news",
+          "source_url": "https://newsapi.org/breaking/msft-breaking_msft_outage",
+          "title": "MSFT Azure regional outage",
+          "excerpt": "Single-source: Azure US-East region experiencing partial outage; service health dashboard not yet updated.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:15:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/MSFT",
+          "title": "MSFT -1.0% afterhours",
+          "excerpt": "Afterhours light volume move; awaiting corroboration.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:20:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "breaking_tsla_fsd",
+      "scenario": "breaking",
+      "summary": "Single-source breaking on TSLA; should mark requires_review.",
+      "evidence_count": 2,
+      "expected": {
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "newsapi",
+          "source_tier": "news",
+          "source_url": "https://newsapi.org/breaking/tsla-breaking_tsla_fsd",
+          "title": "Reports of NHTSA inquiry into TSLA FSD",
+          "excerpt": "Single-source: NHTSA may open inquiry into Tesla FSD beta; agency not yet confirmed; awaiting press release.",
+          "detected_tickers": [
+            "TSLA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:15:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/TSLA",
+          "title": "TSLA -1.0% afterhours",
+          "excerpt": "Afterhours light volume move; awaiting corroboration.",
+          "detected_tickers": [
+            "TSLA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:20:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "breaking_googl_antitrust",
+      "scenario": "breaking",
+      "summary": "Single-source breaking on GOOGL; should mark requires_review.",
+      "evidence_count": 2,
+      "expected": {
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "newsapi",
+          "source_tier": "news",
+          "source_url": "https://newsapi.org/breaking/googl-breaking_googl_antitrust",
+          "title": "Reports of EU antitrust probe expansion",
+          "excerpt": "Single-source: Brussels reportedly expanding antitrust probe to include AI search products; EU not yet confirmed.",
+          "detected_tickers": [
+            "GOOGL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:15:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/GOOGL",
+          "title": "GOOGL -1.0% afterhours",
+          "excerpt": "Afterhours light volume move; awaiting corroboration.",
+          "detected_tickers": [
+            "GOOGL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:20:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "breaking_amd_supply",
+      "scenario": "breaking",
+      "summary": "Single-source breaking on AMD; should mark requires_review.",
+      "evidence_count": 2,
+      "expected": {
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "newsapi",
+          "source_tier": "news",
+          "source_url": "https://newsapi.org/breaking/amd-breaking_amd_supply",
+          "title": "Reports of AMD wafer-supply disruption",
+          "excerpt": "Single-source: TSMC reportedly facing temporary capacity allocation issue affecting AMD orders; both companies declined comment.",
+          "detected_tickers": [
+            "AMD"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:15:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/AMD",
+          "title": "AMD -1.0% afterhours",
+          "excerpt": "Afterhours light volume move; awaiting corroboration.",
+          "detected_tickers": [
+            "AMD"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-25T00:20:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "macro_cpi_inline",
+      "scenario": "macro",
+      "summary": "CPI release; macro_pulse update.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 0
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "bls_release",
+          "source_tier": "official",
+          "source_url": "https://www.bls.gov/news.release/cpi.htm",
+          "title": "CPI released",
+          "excerpt": "Headline CPI rose 3.0% YoY, matching consensus; core CPI 3.4% YoY, in line.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:30:00+00:00",
+          "fetched_at": "2026-04-25T08:35:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/cpi",
+          "title": "CPI reaction summary",
+          "excerpt": "Reuters: CPI in line; rates desk shrugs; equities flat.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:45:00+00:00",
+          "fetched_at": "2026-04-25T08:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "macro_cpi_hot",
+      "scenario": "macro",
+      "summary": "CPI_hot release; macro_pulse update.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 0
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "bls_release",
+          "source_tier": "official",
+          "source_url": "https://www.bls.gov/news.release/cpi_hot.htm",
+          "title": "CPI_hot released",
+          "excerpt": "Headline CPI rose 3.4% YoY vs consensus 3.1%; core CPI 3.7% YoY vs 3.5% expected — hot print.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:30:00+00:00",
+          "fetched_at": "2026-04-25T08:35:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/cpi_hot",
+          "title": "CPI_hot reaction summary",
+          "excerpt": "Reuters: hotter CPI; 2y UST +9 bps; rate cut expectations pushed to 2027.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:45:00+00:00",
+          "fetched_at": "2026-04-25T08:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "macro_nfp_strong",
+      "scenario": "macro",
+      "summary": "NFP release; macro_pulse update.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 0
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "bls_release",
+          "source_tier": "official",
+          "source_url": "https://www.bls.gov/news.release/nfp.htm",
+          "title": "NFP released",
+          "excerpt": "Nonfarm payrolls +320K vs consensus +180K; unemployment 3.7% vs 3.9%; AHE +0.4% MoM.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:30:00+00:00",
+          "fetched_at": "2026-04-25T08:35:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/nfp",
+          "title": "NFP reaction summary",
+          "excerpt": "Reuters: stronger NFP; rates sell off; equities mixed on hawkish read.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:45:00+00:00",
+          "fetched_at": "2026-04-25T08:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "macro_ism_weak",
+      "scenario": "macro",
+      "summary": "ISM release; macro_pulse update.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 0
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "bls_release",
+          "source_tier": "official",
+          "source_url": "https://www.bls.gov/news.release/ism.htm",
+          "title": "ISM released",
+          "excerpt": "ISM Manufacturing 47.2 vs consensus 49.0 — fifth consecutive contraction reading.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:30:00+00:00",
+          "fetched_at": "2026-04-25T08:35:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/ism",
+          "title": "ISM reaction summary",
+          "excerpt": "Reuters: manufacturing weakness persists; cyclicals underperform; bonds bid.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:45:00+00:00",
+          "fetched_at": "2026-04-25T08:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "macro_jobless_rising",
+      "scenario": "macro",
+      "summary": "ICSA release; macro_pulse update.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 0
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "bls_release",
+          "source_tier": "official",
+          "source_url": "https://www.bls.gov/news.release/icsa.htm",
+          "title": "ICSA released",
+          "excerpt": "Initial jobless claims 248K vs 215K consensus; 4-week MA rising; subtle labor-market loosening.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:30:00+00:00",
+          "fetched_at": "2026-04-25T08:35:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/icsa",
+          "title": "ICSA reaction summary",
+          "excerpt": "Reuters: jobless rising; soft-landing narrative gets fresh support.",
+          "detected_tickers": [],
+          "asset_class": "us_treasury",
+          "published_at": "2026-04-25T08:45:00+00:00",
+          "fetched_at": "2026-04-25T08:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "hkex_baba_special_div",
+      "scenario": "hkex",
+      "summary": "9988.HK HKEX filing — official tier primary.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 1,
+        "primary_source_tier": "official"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "hkex_filings",
+          "source_tier": "official",
+          "source_url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0425/hkex_baba_special_div.pdf",
+          "title": "9988.HK special dividend declared",
+          "excerpt": "9988.HK board declared special dividend HK$5.20/share, payable July 2026; aggregate HK$15B return to shareholders.",
+          "detected_tickers": [
+            "9988.HK"
+          ],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-24T23:30:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/asia/9988-hk",
+          "title": "9988.HK filing — Reuters readout",
+          "excerpt": "Reuters: Alibaba special dividend; signals capital return acceleration.",
+          "detected_tickers": [
+            "9988.HK"
+          ],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-25T00:05:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "hkex_meituan_buyback",
+      "scenario": "hkex",
+      "summary": "3690.HK HKEX filing — official tier primary.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 1,
+        "primary_source_tier": "official"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "hkex_filings",
+          "source_tier": "official",
+          "source_url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0425/hkex_meituan_buyback.pdf",
+          "title": "3690.HK extends share buyback programme",
+          "excerpt": "3690.HK extends share buyback authorisation by HK$30B; programme runs through Q4 2026.",
+          "detected_tickers": [
+            "3690.HK"
+          ],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-24T23:30:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/asia/3690-hk",
+          "title": "3690.HK filing — Reuters readout",
+          "excerpt": "Reuters: Meituan extends buyback; supportive signal for HK consumer-internet sector.",
+          "detected_tickers": [
+            "3690.HK"
+          ],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-25T00:05:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "hkex_xiaomi_dual_listing",
+      "scenario": "hkex",
+      "summary": "1810.HK HKEX filing — official tier primary.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 1,
+        "primary_source_tier": "official"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "hkex_filings",
+          "source_tier": "official",
+          "source_url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0425/hkex_xiaomi_dual_listing.pdf",
+          "title": "1810.HK dual-listing application filed",
+          "excerpt": "1810.HK files dual-listing application on Shanghai STAR Market; targets H2 2026 completion.",
+          "detected_tickers": [
+            "1810.HK"
+          ],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-24T23:30:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/asia/1810-hk",
+          "title": "1810.HK filing — Reuters readout",
+          "excerpt": "Reuters: Xiaomi dual-listing filing; signals onshore-funding diversification.",
+          "detected_tickers": [
+            "1810.HK"
+          ],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-25T00:05:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "hkex_galaxy_suspension",
+      "scenario": "hkex",
+      "summary": "0027.HK HKEX filing — official tier primary.",
+      "evidence_count": 2,
+      "expected": {
+        "judgement_count": 1,
+        "primary_source_tier": "official"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "hkex_filings",
+          "source_tier": "official",
+          "source_url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0425/hkex_galaxy_suspension.pdf",
+          "title": "0027.HK trading suspension pending announcement",
+          "excerpt": "0027.HK requests trading suspension pending material price-sensitive announcement; expected resumption next session.",
+          "detected_tickers": [
+            "0027.HK"
+          ],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-24T23:30:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/asia/0027-hk",
+          "title": "0027.HK filing — Reuters readout",
+          "excerpt": "Reuters: Galaxy Entertainment suspension — market awaits announcement.",
+          "detected_tickers": [
+            "0027.HK"
+          ],
+          "asset_class": "hk_equity",
+          "published_at": "2026-04-25T00:05:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "sec_aapl_10q",
+      "scenario": "sec",
+      "summary": "AAPL 10-Q — official tier primary.",
+      "evidence_count": 2,
+      "expected": {
+        "primary_source_tier": "official"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/aapl/10-q",
+          "title": "AAPL 10-Q",
+          "excerpt": "AAPL filed 10-Q with detailed segment breakdown; services gross margin 71.7% vs 70.9% prior quarter.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/technology/aapl-sec_aapl_10q",
+          "title": "AAPL 10-Q — Reuters",
+          "excerpt": "Reuters: Apple 10-Q reveals services margin expansion.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "sec_msft_10k",
+      "scenario": "sec",
+      "summary": "MSFT 10-K — official tier primary.",
+      "evidence_count": 2,
+      "expected": {
+        "primary_source_tier": "official"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/msft/10-k",
+          "title": "MSFT 10-K",
+          "excerpt": "MSFT filed 10-K with FY2026 detail; AI and cloud disclosures expanded; capex commitments US$58B over 2 yrs.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/technology/msft-sec_msft_10k",
+          "title": "MSFT 10-K — Reuters",
+          "excerpt": "Reuters: Microsoft 10-K shows scale of AI infrastructure spend.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "sec_brk_13f",
+      "scenario": "sec",
+      "summary": "BRK.B 13F — official tier primary.",
+      "evidence_count": 2,
+      "expected": {
+        "primary_source_tier": "official"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/brk.b/13f",
+          "title": "BRK.B 13F",
+          "excerpt": "BRK.B filed 13F: trimmed AAPL position by 25%; added new financial-services name.",
+          "detected_tickers": [
+            "BRK.B"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/technology/brk.b-sec_brk_13f",
+          "title": "BRK.B 13F — Reuters",
+          "excerpt": "Reuters: Berkshire trims Apple stake by 25%; signals portfolio rebalancing.",
+          "detected_tickers": [
+            "BRK.B"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "sec_googl_8k_settlement",
+      "scenario": "sec",
+      "summary": "GOOGL 8-K — official tier primary.",
+      "evidence_count": 2,
+      "expected": {
+        "primary_source_tier": "official"
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "sec_edgar",
+          "source_tier": "official",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/googl/8-k",
+          "title": "GOOGL 8-K",
+          "excerpt": "GOOGL filed 8-K disclosing US$1.4B settlement of historical advertising-practices class action.",
+          "detected_tickers": [
+            "GOOGL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/technology/googl-sec_googl_8k_settlement",
+          "title": "GOOGL 8-K — Reuters",
+          "excerpt": "Reuters: Alphabet settles long-running ad-practices litigation for US$1.4B.",
+          "detected_tickers": [
+            "GOOGL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "research_ms_nvda_upgrade",
+      "scenario": "research_pdf",
+      "summary": "MorganStanley research PDF on NVDA.",
+      "evidence_count": 2,
+      "expected": {
+        "external_ticker_warning": false,
+        "auto_expand_universe": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/morganstanley_nvda.pdf#page=4",
+          "title": "Morgan Stanley upgrades NVDA to Overweight with US$1100 PT",
+          "excerpt": "Morgan Stanley raises NVDA to Overweight; US$1100 PT (from US$950); cites resilient hyperscaler capex outlook.",
+          "detected_tickers": [
+            "NVDA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/morganstanley_nvda.pdf#page=5",
+          "title": "MorganStanley appendix — peer comp",
+          "excerpt": "Peer comp table; NVDA trades at modest premium to sector median.",
+          "detected_tickers": [
+            "NVDA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "research_jpm_aapl_neutral",
+      "scenario": "research_pdf",
+      "summary": "JPMC research PDF on AAPL.",
+      "evidence_count": 2,
+      "expected": {
+        "external_ticker_warning": false,
+        "auto_expand_universe": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/jpmc_aapl.pdf#page=4",
+          "title": "JPMC moves AAPL to Neutral",
+          "excerpt": "JPMC moves AAPL to Neutral from Overweight; cites maturing iPhone cycle; PT US$210.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/jpmc_aapl.pdf#page=5",
+          "title": "JPMC appendix — peer comp",
+          "excerpt": "Peer comp table; AAPL trades at modest premium to sector median.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "research_barclays_msft_ow",
+      "scenario": "research_pdf",
+      "summary": "Barclays research PDF on MSFT.",
+      "evidence_count": 2,
+      "expected": {
+        "external_ticker_warning": false,
+        "auto_expand_universe": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/barclays_msft.pdf#page=4",
+          "title": "Barclays initiates MSFT at Overweight",
+          "excerpt": "Barclays initiates MSFT at OW; PT US$520; thesis: AI infrastructure leadership compounds enterprise GTM advantage.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/barclays_msft.pdf#page=5",
+          "title": "Barclays appendix — peer comp",
+          "excerpt": "Peer comp table; MSFT trades at modest premium to sector median.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "research_db_tlt_underweight",
+      "scenario": "research_pdf",
+      "summary": "DeutscheBank research PDF on TLT.",
+      "evidence_count": 2,
+      "expected": {
+        "external_ticker_warning": false,
+        "auto_expand_universe": false
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/deutschebank_tlt.pdf#page=4",
+          "title": "Deutsche Bank flags long-end UST risk",
+          "excerpt": "Deutsche Bank rates strategy: long-end UST exposure looks rich; recommends underweight TLT into Q3 supply.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        },
+        {
+          "source_name": "research_pdf",
+          "source_tier": "research",
+          "source_url": "file://research_pdfs/deutschebank_tlt.pdf#page=5",
+          "title": "DeutscheBank appendix — peer comp",
+          "excerpt": "Peer comp table; TLT trades at modest premium to sector median.",
+          "detected_tickers": [
+            "TLT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-23T09:00:00+00:00",
+          "fetched_at": "2026-04-25T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "conflict_nvda_growth_rate",
+      "scenario": "conflict",
+      "summary": "Two news sources disagree on NVDA magnitude — should flag conflict.",
+      "evidence_count": 3,
+      "expected": {
+        "conflict": true,
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/nvda-conflict_nvda_growth_rate",
+          "title": "NVDA: Reuters read",
+          "excerpt": "Reuters: Nvidia data-center revenue +18% sequentially.",
+          "detected_tickers": [
+            "NVDA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/nvda-conflict_nvda_growth_rate",
+          "title": "NVDA: Bloomberg read",
+          "excerpt": "Bloomberg: Nvidia data-center revenue +22% sequentially — reading differs from Reuters' 18%.",
+          "detected_tickers": [
+            "NVDA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/NVDA",
+          "title": "NVDA -2% afterhours",
+          "excerpt": "Afterhours move on conflicting reports; volume elevated.",
+          "detected_tickers": [
+            "NVDA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "conflict_aapl_iphone_units",
+      "scenario": "conflict",
+      "summary": "Two news sources disagree on AAPL magnitude — should flag conflict.",
+      "evidence_count": 3,
+      "expected": {
+        "conflict": true,
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/aapl-conflict_aapl_iphone_units",
+          "title": "AAPL: Reuters read",
+          "excerpt": "Reuters: Apple iPhone units flat YoY at ~52M.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/aapl-conflict_aapl_iphone_units",
+          "title": "AAPL: Bloomberg read",
+          "excerpt": "Bloomberg: Apple iPhone units up 4% YoY to ~54M — read differs from Reuters' flat.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/AAPL",
+          "title": "AAPL -2% afterhours",
+          "excerpt": "Afterhours move on conflicting reports; volume elevated.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "conflict_tsla_deliveries",
+      "scenario": "conflict",
+      "summary": "Two news sources disagree on TSLA magnitude — should flag conflict.",
+      "evidence_count": 3,
+      "expected": {
+        "conflict": true,
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/tsla-conflict_tsla_deliveries",
+          "title": "TSLA: Reuters read",
+          "excerpt": "Reuters: Tesla deliveries 442K — beats consensus 432K.",
+          "detected_tickers": [
+            "TSLA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/tsla-conflict_tsla_deliveries",
+          "title": "TSLA: Bloomberg read",
+          "excerpt": "Bloomberg: Tesla deliveries 432K — misses consensus 442K (estimates differ across sources).",
+          "detected_tickers": [
+            "TSLA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/TSLA",
+          "title": "TSLA -2% afterhours",
+          "excerpt": "Afterhours move on conflicting reports; volume elevated.",
+          "detected_tickers": [
+            "TSLA"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "conflict_msft_capex",
+      "scenario": "conflict",
+      "summary": "Two news sources disagree on MSFT magnitude — should flag conflict.",
+      "evidence_count": 3,
+      "expected": {
+        "conflict": true,
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/markets/msft-conflict_msft_capex",
+          "title": "MSFT: Reuters read",
+          "excerpt": "Reuters: Microsoft capex guide raised to US$72B for 2026.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "bloomberg",
+          "source_tier": "news",
+          "source_url": "https://www.bloomberg.com/news/msft-conflict_msft_capex",
+          "title": "MSFT: Bloomberg read",
+          "excerpt": "Bloomberg: Microsoft capex guide raised to US$80B for 2026 — significant magnitude divergence.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T22:00:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        },
+        {
+          "source_name": "yfinance",
+          "source_tier": "market",
+          "source_url": "https://finance.yahoo.com/quote/MSFT",
+          "title": "MSFT -2% afterhours",
+          "excerpt": "Afterhours move on conflicting reports; volume elevated.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:45:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "single_aapl_supplier",
+      "scenario": "single_source",
+      "summary": "Only one source covers AAPL event.",
+      "evidence_count": 1,
+      "expected": {
+        "judgement_count": 0,
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/single_aapl_supplier",
+          "title": "AAPL sole-source coverage",
+          "excerpt": "Single-source claim of new AAPL supplier in India; details unconfirmed; only one outlet covers.",
+          "detected_tickers": [
+            "AAPL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "single_msft_partnership",
+      "scenario": "single_source",
+      "summary": "Only one source covers MSFT event.",
+      "evidence_count": 1,
+      "expected": {
+        "judgement_count": 0,
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/single_msft_partnership",
+          "title": "MSFT sole-source coverage",
+          "excerpt": "Single-source: MSFT in advanced talks for new partnership in healthcare AI; both parties decline comment.",
+          "detected_tickers": [
+            "MSFT"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "single_googl_acquisition",
+      "scenario": "single_source",
+      "summary": "Only one source covers GOOGL event.",
+      "evidence_count": 1,
+      "expected": {
+        "judgement_count": 0,
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/single_googl_acquisition",
+          "title": "GOOGL sole-source coverage",
+          "excerpt": "Single-source: GOOGL reportedly evaluating SaaS acquisition; awaiting independent corroboration.",
+          "detected_tickers": [
+            "GOOGL"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": "single_amd_design_win",
+      "scenario": "single_source",
+      "summary": "Only one source covers AMD event.",
+      "evidence_count": 1,
+      "expected": {
+        "judgement_count": 0,
+        "requires_review": true
+      },
+      "evidence_pool_input": [
+        {
+          "source_name": "reuters",
+          "source_tier": "news",
+          "source_url": "https://www.reuters.com/single_amd_design_win",
+          "title": "AMD sole-source coverage",
+          "excerpt": "Single-source: AMD reportedly secured a design win at major hyperscaler; not yet corroborated.",
+          "detected_tickers": [
+            "AMD"
+          ],
+          "asset_class": "us_equity",
+          "published_at": "2026-04-24T20:30:00+00:00",
+          "fetched_at": "2026-04-25T00:30:00+00:00"
         }
       ]
     }

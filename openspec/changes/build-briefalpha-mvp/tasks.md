@@ -86,7 +86,7 @@
 - [x] 8.2 `validator.quote_span`：调用 anonymization 模块的 segment-based 转换函数，禁止自实现近似算法；转换失败 → 视为不可定位 → 触发重试
 - [x] 8.3 `validator.numbers`：数字 / 百分比 / bp / 金额 / 倍数在 quote_span ±120 字符内一致 + 单位一致
 - [x] 8.4 `validator.polarity`：beat / miss / raise / cut / 上调 / 下调 / 超预期 / 不及预期方向词字典
-- [x] 8.5 `validator.time_window`：PRD §2.6 表 → `TimeWindowRule` enum；用 zoneinfo（Asia/Hong_Kong / America/New_York）；NYSE 交易日历库
+- [x] 8.5 `validator.time_window`：PRD §2.6 表 → `TimeWindowRule` enum；用 zoneinfo（Asia/Hong_Kong / America/New_York）；NYSE 交易日历库  *(now wired through validator.runner — golden runner reports time_window_consistent_rate)*
 - [x] 8.6 `validator.sensitive_output`：复用反向敏感扫描
 - [x] 8.7 拒绝 / 重试 / 降级路径与 wrapper 联动
 - [x] 8.8 单元测试：覆盖 §6.1 validator 验收（quote_span 不可定位 / 数字 / 时间窗 / 连续 3 次失败）
@@ -142,7 +142,7 @@
 - [x] 14.1 `POST /api/research/upload`：multipart；mime + size 校验；活跃数量 ≤ 5 校验
 - [x] 14.2 加密落盘 `research_pdfs/{user_id}/{file_id}.pdf`；权限隔离（403 跨用户）
 - [x] 14.3 consent 持久化（`consent_log`）：user_id / timestamp / policy_version / file_id / consent_state
-- [x] 14.4 解析 worker：extraction（pdfplumber 文本 + 表格 + bbox）→ OCR fallback（pytesseract）→ vision captioning（仅 consent）→ chunking（200-500 字符 + heading + chunk_type）→ ticker_detection（NER + dict）→ FTS dedupe（embedding > 0.9 丢弃）→ merge to pool（source_tier=research, reliability=0.5）
+- [x] 14.4 解析 worker：extraction（pdfplumber 文本 + 表格 + bbox）→ OCR fallback（pytesseract）→ vision captioning（仅 consent）→ chunking（200-500 字符 + heading + chunk_type）→ ticker_detection（NER + dict）→ FTS dedupe（embedding > 0.9 丢弃）→ merge to pool（source_tier=research, reliability=0.5）  *(worker 函数已写但无 caller)*
 - [x] 14.5 partial_failure 收集：每 stage 失败记录 stage / 原因 / 页码；parse_report 展示 partial 明细
 - [x] 14.6 caption 入池前必经 anonymization
 - [x] 14.7 `GET /api/research/{file_id}` 状态查询；`GET /api/research/{file_id}/parse_report`
@@ -179,7 +179,7 @@
 
 ## 17. golden set 与质量回归
 
-- [x] 17.1 设计 ≥ 50 条 golden cases，覆盖 PRD §5.1.3 所列 9 个场景类别（earnings / 政策日 / 平静日 / 突发 / macro / HKEX/SEC / research PDF / conflict / 单源 vs 多源）
+- [x] 17.1 设计 ≥ 50 条 golden cases，覆盖 PRD §5.1.3 所列 9 个场景类别（earnings / 政策日 / 平静日 / 突发 / macro / HKEX/SEC / research PDF / conflict / 单源 vs 多源）  *(54 cases via tests/golden/generate_cases.py)*
 - [x] 17.2 golden runner：每次 prompt / scoring / validator 修改 CI 自动执行
 - [x] 17.3 输出指标报告：citation 可定位率、数字一致率、极性一致率、时间窗一致率、输出敏感扫描通过率、`unsafe_generated_alias` 计数、conservative_brief 触发率、`no_direct_portfolio_link` 触发率
 - [x] 17.4 conservative_brief 触发率门禁：> 10% 阻断合并
@@ -203,4 +203,74 @@
 - [x] 19.5 PRD §6.5 可访问性 + §6.6 异常场景验收
 - [x] 19.6 准备评审材料：技术设计 walkthrough + 安全审计样例 + golden 报告
 - [x] Frontend visual parity: export screenshots from '/Users/krantlee/Documents/Study/Vibe Coding Experiments/Family-Office-Morning-Brief 2 [BriefAlpha]/docs/Designs/BriefAlpha.pen' frames and compare with Playwright screenshots at 1440px desktop. Major layout, typography, spacing, color, and density must match before marking frontend complete.
+
+## 20. Mainline D — fill in the stubs (post-PR audit)
+
+After auditing the actual code vs the original task list, the following stubbed
+slices need to be turned into real implementations so the system can run with
+just key configuration + basic debugging.
+
+### 20.1 Foundations
+
+- [x] 20.1.1 Add `briefalpha_api/auth.py` — admin token loader + `require_admin_token` FastAPI dependency
+- [x] 20.1.2 Extend `briefalpha_api/cache/redis_client.py` with generic `set_json` / `get_json` / `lpush` / `lpop` / `llen` / `hash` helpers used by source_health cache, research queue, and admin diagnostics
+
+### 20.2 Audit log persistence (task 11.1 / 11.4 / 11.6)
+
+- [x] 20.2.1 Replace `_audit_pre/_audit_post` log-only stubs in `llm/wrapper.py` with `audit.writer.record_audit()` calls; capture `accuracy_validation_passed` and `failure_state` correctly
+- [x] 20.2.2 Wire ingestion runner to call `audit.writer.record_source_health()` per adapter run
+- [x] 20.2.3 Add `_aggregate_source_health` cron implementation: scan `source_health_history` last 30 min → compute per-source status → write redis `source_health:latest`
+
+### 20.3 Source health real flow (task 13.4)
+
+- [x] 20.3.1 `/api/source-health` reads redis `source_health:latest` first, falls back to a recent DB scan, finally to the demo fixture
+
+### 20.4 Research upload real flow (tasks 14.1 / 14.2 / 14.3 / 14.7 / 14.8 / 14.9)
+
+- [x] 20.4.1 `briefalpha_api/research/storage.py` — encrypted PDF write/read via `alias_key` (AES-GCM), per-user directory `research_pdfs/{user_id}/{file_id}.pdf.enc`
+- [x] 20.4.2 `briefalpha_api/research/persistence.py` — DB-backed CRUD: `create_research_job`, `mark_status`, `count_active_for_user`, `get_for_user`, `delete_for_user`, `persist_chunks_and_evidence` (writes `research_chunks` + `evidence` + `evidence_fts`)
+- [x] 20.4.3 `/api/research/upload` real impl: enforce mime + size, active count ≤ 5 per user, persist `ResearchJob` + `ConsentLog`, encrypt to disk, push file_id to redis `research:queue`
+- [x] 20.4.4 `/api/research/{file_id}` and `/parse_report` read DB (with cross-user 403)
+- [x] 20.4.5 `/api/research/{file_id}/reanalyze` flips status to `reanalyze_queued`, pushes to `reanalyze:queue`; ensures mutual exclusion with main pipeline
+- [x] 20.4.6 `DELETE /api/research/{file_id}` removes chunks from FTS + DB + evidence pool + on-disk PDF
+- [x] 20.4.7 Worker tick (driven by scheduler): pop file_id from queue → fetch job → decrypt PDF → call `process_research_pdf` → persist chunks/evidence/FTS → write parse_report back to DB → mark status
+
+### 20.5 QA real flow (task 13.3)
+
+- [x] 20.5.1 `briefalpha_api/qa/service.py` — orchestrates: load alias_map → alias question → run FTS search in scope → rebuild `AliasedEvidence` from DB rows → call `call_text_llm(qa_local|qa_global)` with `accuracy_validate` hook → reverse_alias on answer → return citations / `insufficient_evidence` / `brief_expired`
+- [x] 20.5.2 `/api/qa` router uses the service; preserves existing `QaResponse` shape so frontend works unchanged
+- [x] 20.5.3 Persist 3-turn QA context to redis `qa:context:{brief_id}:{scope}:{target_id}`
+
+### 20.6 Drawer + portfolio + analytics (tasks 13.2 / 13.5 / 16.2)
+
+- [x] 20.6.1 `/api/judgement/{id}/drawer` reads cached brief from redis (falls back to fixture only if cache empty)
+- [x] 20.6.2 `/api/portfolio` admin token gate via `require_admin_token`
+- [x] 20.6.3 `/api/_analytics` writes `AnalyticsEvent` rows; events with names matching the audit-relevant set also append a row to `audit_log`
+
+### 20.7 Scheduler real jobs (tasks 12.2 / 12.3)
+
+- [x] 20.7.1 `_run_brief_job` invokes `pipeline.run.run_full_brief("YYYY-MM-DD")` and writes redis cache; only on weekdays
+- [x] 20.7.2 `_refresh_dictionary` rebuilds `SensitiveEntityDictionary` cache (yfinance lookups + zh aliases) and writes to a redis snapshot
+- [x] 20.7.3 Add weekly job: refresh `data/symbol_maps/sec_company_tickers.json` + `hkex_stock_codes.json` (download via httpx, with fail-soft on network error)
+- [x] 20.7.4 Add daily job: PDF retention sweep (delete encrypted files older than 7 days) + audit_log retention sweep (compaction stub)
+- [x] 20.7.5 Add per-minute job: research worker tick (drain `research:queue` and `reanalyze:queue` with concurrency=1)
+- [x] 20.7.6 Start the scheduler in `main.lifespan`
+
+### 20.8 Admin diagnostics + audit_mode toggle (tasks 11.3 / 11.5 / 11.6)
+
+- [x] 20.8.1 `/api/admin/diagnostics/source-health-history` — last N hours per source from `source_health_history`
+- [x] 20.8.2 `/api/admin/diagnostics/conservative-brief-rate` — month/30d trigger rate from `audit_log.failure_state` + `analytics_event`
+- [x] 20.8.3 `/api/admin/diagnostics/audit-mode-history` — every audit_mode toggle row from `audit_log` with reason payload
+- [x] 20.8.4 `/api/admin/diagnostics/missing-aliases` — universe tickers without `company_alias_zh.yml` entry
+- [x] 20.8.5 `POST /api/admin/audit-mode` — accepts `{mode, confirm_token, reason}` (twin-token confirmation), records to `audit_log` with scope=`admin_audit_mode_toggle`
+
+### 20.9 Tests + verification (tasks 11.8 / 13.7 / 14.11)
+
+- [x] 20.9.1 Unit: audit log row written per LLM call (success + failure)
+- [x] 20.9.2 Unit: `/api/research/upload` enforces ≤ 5 active uploads, cross-user 403, ConsentLog row created
+- [x] 20.9.3 Unit: `/api/qa` returns `brief_expired` when alias_map missing; returns `insufficient_evidence` when FTS empty; reverse_alias flags `unsafe_generated_alias`
+- [x] 20.9.4 Unit: `/api/portfolio` rejects without admin token
+- [x] 20.9.5 Unit: `/api/_analytics` round-trips through DB
+- [x] 20.9.6 Pipeline integration: full flow including audit_log row inspection
+- [x] 20.9.7 Run `pytest` and `python -m tests.golden.runner`; capture metrics report for review
 

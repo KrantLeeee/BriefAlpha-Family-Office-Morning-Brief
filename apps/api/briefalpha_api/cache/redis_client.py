@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 from redis import asyncio as redis_asyncio
@@ -23,7 +24,7 @@ log = logging.getLogger("briefalpha.cache")
 # before it expires. (Per design.md §8.)
 BRIEF_TTL_SECONDS = 23 * 60 * 60
 
-_client: redis_asyncio.Redis | None = None
+_client: dict[int, redis_asyncio.Redis] | redis_asyncio.Redis | None = None
 
 
 def brief_key(brief_date_hkt: str) -> str:
@@ -31,23 +32,42 @@ def brief_key(brief_date_hkt: str) -> str:
 
 
 def get_redis() -> redis_asyncio.Redis | None:
-    """Return a singleton client or `None` if Redis can't be reached.
+    """Return a per-event-loop client or `None` if Redis can't be reached.
 
-    The first failure logs once and caches `None` — we don't want every
-    request to attempt a TCP connect when redis is offline. A successful
-    later call (e.g., after redis comes back) requires `reset_redis()`.
+    Async redis clients are bound to the asyncio loop they were created in.
+    Pytest spins up a fresh loop per test, so a globally-cached client
+    blows up with "Event loop is closed" on the second test. We key the
+    cache by the running loop's id; the GC reclaims old entries when the
+    loop is destroyed and its references go away.
+
+    Also honours `BRIEFALPHA_DISABLE_REDIS=1` so tests + offline dev can
+    run without spawning a redis container.
     """
-    global _client
-    if _client is not None:
-        return _client
+    if os.environ.get("BRIEFALPHA_DISABLE_REDIS") == "1":
+        return None
+    import asyncio
+
     try:
-        _client = redis_asyncio.from_url(
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    loop_id = id(loop) if loop is not None else 0
+
+    global _client
+    if isinstance(_client, dict) and loop_id in _client:
+        return _client[loop_id]
+    if not isinstance(_client, dict):
+        _client = {}
+
+    try:
+        client = redis_asyncio.from_url(
             get_settings().redis_url,
             decode_responses=True,
             socket_connect_timeout=1.0,
             socket_timeout=2.0,
         )
-        return _client
+        _client[loop_id] = client
+        return client
     except RedisError as exc:  # pragma: no cover — connection-time only
         log.warning("redis init failed: %s — falling back to no-cache mode", exc)
         return None
@@ -101,3 +121,95 @@ async def delete_brief_cache(brief_date_hkt: str) -> None:
         await client.delete(brief_key(brief_date_hkt))
     except RedisError as exc:
         log.warning("redis DEL failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Generic JSON / list helpers (used by source_health cache, research queue,
+# QA context, and admin diagnostics). All operations are best-effort and
+# log + degrade rather than raising.
+# ---------------------------------------------------------------------------
+
+
+async def set_json(key: str, value: Any, *, ttl_seconds: int | None = None) -> bool:
+    client = get_redis()
+    if client is None:
+        return False
+    try:
+        payload = json.dumps(value, ensure_ascii=False, default=str)
+        if ttl_seconds:
+            await client.set(key, payload, ex=ttl_seconds)
+        else:
+            await client.set(key, payload)
+        return True
+    except RedisError as exc:
+        log.warning("redis SET %s failed: %s", key, exc)
+        return False
+
+
+async def get_json(key: str) -> Any | None:
+    client = get_redis()
+    if client is None:
+        return None
+    try:
+        raw = await client.get(key)
+    except RedisError as exc:
+        log.warning("redis GET %s failed: %s", key, exc)
+        return None
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        log.warning("redis JSON decode failed for %s", key)
+        return None
+
+
+async def lpush(key: str, value: Any) -> bool:
+    client = get_redis()
+    if client is None:
+        return False
+    try:
+        await client.lpush(key, json.dumps(value, ensure_ascii=False, default=str))
+        return True
+    except RedisError as exc:
+        log.warning("redis LPUSH %s failed: %s", key, exc)
+        return False
+
+
+async def rpop(key: str) -> Any | None:
+    client = get_redis()
+    if client is None:
+        return None
+    try:
+        raw = await client.rpop(key)
+    except RedisError as exc:
+        log.warning("redis RPOP %s failed: %s", key, exc)
+        return None
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return raw
+
+
+async def llen(key: str) -> int:
+    client = get_redis()
+    if client is None:
+        return 0
+    try:
+        return int(await client.llen(key))
+    except RedisError as exc:
+        log.warning("redis LLEN %s failed: %s", key, exc)
+        return 0
+
+
+# Stable key constants used by the rest of the codebase.
+SOURCE_HEALTH_KEY = "source_health:latest"
+RESEARCH_QUEUE_KEY = "research:queue"
+REANALYZE_QUEUE_KEY = "reanalyze:queue"
+
+
+def qa_context_key(brief_id: str, scope: str, target_id: str | None) -> str:
+    safe_target = target_id or "all"
+    return f"qa:context:{brief_id}:{scope}:{safe_target}"
