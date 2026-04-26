@@ -78,6 +78,69 @@ the cache layer degrades to no-op (every request triggers a fresh DB
 read or fallback to fixture data). To skip the cron scheduler too set
 `BRIEFALPHA_DISABLE_SCHEDULER=1`.
 
+<a id="switching-modes"></a>
+## Switching modes (demo / live)
+
+BriefAlpha runs in one of two modes, selected by the `BRIEFALPHA_MODE`
+environment variable. The mode is **manual** — there is no
+auto-detection, on purpose.
+
+| Mode | Default | What it does | When to use |
+|---|---|---|---|
+| `demo` | yes | Serves a hand-curated fixture brief. Every "demo" surface is explicitly labeled (banner, source-health `(示例)`, evidence links open an internal modal). No external API calls. | First-time setup, design preview, demo to a reviewer without configuring keys. |
+| `live` | opt-in | Runs the real ingestion → brief → QA pipeline. Fail-fasts on startup if required preconditions are missing. | Daily personal use after configuring keys. |
+
+### Default behavior (no config needed)
+
+```bash
+make dev-api    # equivalent to BRIEFALPHA_MODE=demo
+```
+
+The API starts with `BRIEFALPHA_MODE=demo`. The web app shows a persistent
+orange banner: "示例数据 · 未配置真实数据源". `/api/brief/today` returns
+the fixture (with `system.data_quality = "fixture"` so the UI can
+distinguish honestly). QA falls back to a small set of pre-baked
+keyword answers labeled "示例回答".
+
+### Switching to live
+
+```bash
+export BRIEFALPHA_MODE=live
+export ANTHROPIC_API_KEY=sk-ant-...           # OR OPENAI_API_KEY
+export SEC_EDGAR_USER_AGENT="BriefAlpha/dev your.email@example.com"
+make dev-api
+```
+
+If any of these are missing, the API logs each missing item and exits
+with code 1 — by design, so you can never accidentally serve stale
+fixture content as "live".
+
+#### Live preconditions (fail-fast checklist)
+
+- **At least one LLM provider key.** Either:
+  - `ANTHROPIC_API_KEY` env var, OR
+  - `OPENAI_API_KEY` env var, OR
+  - A non-placeholder value in `data/.secrets/llm_api_keys.json` (the
+    init script seeds `sk-ant-replace-me` etc. — those are detected as
+    placeholders and rejected).
+- **`SEC_EDGAR_USER_AGENT`** in the form `AppName/version
+  contact@example.com`. SEC's RSS feed requires it.
+
+The default ingestion adapters (yfinance, GDELT, Google News RSS, SEC
+EDGAR RSS, HKEX RSS) are key-less, so no other secrets are required for
+a baseline live setup. `FINNHUB_API_KEY` / `ALPHA_VANTAGE_API_KEY` etc.
+in `.env.example` are placeholders for future paid adapters.
+
+### Refresh button
+
+The top-bar "刷新数据" button is mode-aware:
+
+- **Demo:** invalidates the brief cache so the next page load re-stamps
+  `system.last_refreshed_at`, and shows `已刷新 HH:MM`. Does **not**
+  trigger ingestion (there's no real data to fetch).
+- **Live:** invalidates the cache and respawns brief generation
+  (ingestion → pipeline → cache write). Shows `已排队，请稍候`.
+
 ## Quick smoke test
 
 After `make dev-api` is up:
