@@ -67,13 +67,36 @@ async def run_qa(
     scope: Scope,
     scope_target_id: str | None,
     question: str,
+    mode: str = "live",
 ) -> QaServiceResult:
+    # Empty-question fast path
     if not question.strip():
         return QaServiceResult(
-            answer="问题不能为空。",
-            insufficient_evidence=True,
-            validation_passed=False,
+            answer="请输入与今日 brief 相关的问题。",
+            insufficient_evidence=False,
+            validation_passed=True,
             failure_reason="empty_question",
+        )
+
+    # Demo mode: prebaked or no-match, never call LLM
+    if mode == "demo":
+        from briefalpha_api.qa.demo_responses import lookup
+        answer = lookup(question)
+        if answer is not None:
+            return QaServiceResult(
+                answer=answer,
+                insufficient_evidence=False,
+                validation_passed=True,
+                failure_reason="demo_mode_prebaked",
+            )
+        return QaServiceResult(
+            answer=(
+                "当前是 demo 模式（未配置 LLM provider），仅支持基于示例 brief 的预设问题。\n"
+                "试试问：『总结今日』、『NVDA』、『待复核 chip 是什么意思？』"
+            ),
+            insufficient_evidence=False,
+            validation_passed=True,
+            failure_reason="demo_mode_no_match",
         )
 
     # Step 1: alias context (alias_map ciphertext on disk).
@@ -227,10 +250,13 @@ async def run_qa(
 
     if resp.provider == "conservative":
         return QaServiceResult(
-            answer="当前无法生成可信回答（连续验证失败或 provider 不可用），请稍后再试。",
+            answer=(
+                "QA 当前不可用：LLM provider 未配置或连续验证失败。"
+                "请检查 ANTHROPIC_API_KEY / OPENAI_API_KEY 是否已设置。"
+            ),
             insufficient_evidence=False,
             validation_passed=False,
-            failure_reason="conservative_fallback",
+            failure_reason="llm_unconfigured",
         )
 
     # Step 6: safe reverse alias on the answer text (already done inside

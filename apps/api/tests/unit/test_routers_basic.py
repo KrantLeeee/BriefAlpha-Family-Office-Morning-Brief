@@ -134,7 +134,10 @@ def test_analytics_post_persists_events() -> None:
         assert "drawer_close" in names
 
 
-def test_qa_returns_brief_expired_when_no_alias_map() -> None:
+def test_qa_returns_demo_no_match_in_default_demo_mode() -> None:
+    """Default mode is demo; arbitrary questions without keyword match go
+    through the demo dispatch and return failure_reason=demo_mode_no_match.
+    The brief_expired path is now only reachable in live mode."""
     with TestClient(app) as client:
         r = client.post(
             "/api/qa",
@@ -147,8 +150,9 @@ def test_qa_returns_brief_expired_when_no_alias_map() -> None:
         )
     assert r.status_code == 200
     body = r.json()
-    assert body["validation_passed"] is False
-    assert "过期" in body["answer"]
+    assert body["failure_reason"] == "demo_mode_no_match"
+    assert body["is_demo_response"] is False
+    assert "demo" in body["answer"]
 
 
 def test_source_health_returns_payload_shape() -> None:
