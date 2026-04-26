@@ -4,6 +4,34 @@
  * pipeline replaces the fixture.
  */
 
+export type Mode = "demo" | "live";
+export type BriefStatus = "ready" | "generating" | "stale" | "error";
+export type DataQuality = "fixture" | "live" | "partial" | "unavailable";
+export type LinkKind = "external" | "internal_demo" | "internal_research" | "unavailable";
+
+export interface SystemMeta {
+  mode: Mode;
+  status: BriefStatus;
+  generated_at: string | null;
+  last_refreshed_at: string | null;
+  data_quality: DataQuality;
+}
+
+export interface MacroPulseItem {
+  name: string;
+  value: string;
+  delta: string;
+  threshold: string;
+  status: "ok" | "watch" | "alert";
+}
+
+export interface ReviewMeta {
+  reason: "source_conflict" | "portfolio_uncertain" | "threshold_breach" | "data_gap";
+  note: string;
+  status: "open" | "reviewed";
+  reviewed_at: string | null;
+}
+
 export type Trend = "up" | "down" | "flat";
 
 export type StatusLevel = "ok" | "active" | "degraded" | "failed";
@@ -53,14 +81,16 @@ export interface EvidenceCard {
   source_label: string;
   title: string;
   quote: string;
-  source_link: string;
+  source_link?: string;
+  link_kind: LinkKind;
   conflict?: boolean;
 }
 
 export interface SupplementarySource {
   evidence_id: string;
   label: string;
-  source_link: string;
+  source_link?: string;
+  link_kind: LinkKind;
 }
 
 export interface Judgement {
@@ -72,6 +102,7 @@ export interface Judgement {
   metadata: string;
   evidence_count: number;
   requires_review: boolean;
+  review: ReviewMeta | null;
   no_direct_portfolio_link: boolean;
   reasoning_chain: ReasoningChain;
   evidence: EvidenceCard[];
@@ -85,6 +116,7 @@ export interface PlaybookEvent {
   label: string;
   detail: string;
   related_judgement_ids: string[];
+  related_evidence_ids: string[];
   is_next: boolean;
 }
 
@@ -97,6 +129,7 @@ export interface SourceHealthRow {
   name: string;
   status: StatusLevel;
   detail: string;
+  is_demo: boolean;
 }
 
 export interface SourceHealth {
@@ -128,6 +161,8 @@ export interface Brief {
     label: string;
     expand_label: string;
   };
+  macro_pulse: MacroPulseItem[];
+  system: SystemMeta;
   footer: { left: string; right: string };
 }
 
@@ -142,6 +177,14 @@ export interface QaResponse {
   citations: QaCitation[];
   insufficient_evidence: boolean;
   validation_passed: boolean;
+  failure_reason?:
+    | "llm_unconfigured"
+    | "evidence_insufficient"
+    | "out_of_scope"
+    | "empty_question"
+    | "demo_mode_no_match"
+    | "demo_mode_prebaked";
+  is_demo_response?: boolean;
 }
 
 export interface ParseReportStage {
