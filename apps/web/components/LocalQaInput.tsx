@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useEffect, useState, useTransition } from "react";
 
 import { postQa } from "@/lib/api";
@@ -15,6 +16,35 @@ interface Props {
 
 const QA_TIMEOUT_MS = 20_000;
 const MAX_QUESTION_LEN = 500;
+
+function DemoAnswerBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-chip border border-orange-200 bg-warningWash px-2 py-[2px] font-mono text-[10px] font-medium text-orange-600">
+      示例回答
+    </span>
+  );
+}
+
+function failureLabel(reason: string | undefined): string {
+  switch (reason) {
+    case "demo_mode_prebaked":
+      return "示例回答（基于 demo brief）";
+    case "demo_mode_no_match":
+      return "提示";
+    case "evidence_insufficient":
+      return "证据不足";
+    case "out_of_scope":
+      return "超出范围";
+    case "empty_question":
+      return "提示";
+    case "llm_unconfigured":
+      return "QA 服务未配置";
+    case "brief_expired":
+      return "Brief 已过期";
+    default:
+      return "回答（已校验）";
+  }
+}
 
 export function LocalQaInput({ briefId, scope, scopeTargetId, suggestedQuestions }: Props) {
   const [question, setQuestion] = useState("");
@@ -51,7 +81,7 @@ export function LocalQaInput({ briefId, scope, scopeTargetId, suggestedQuestions
       setResponse(r);
       pushQa({ question: question.trim(), answer: r.answer });
     } catch (e: unknown) {
-      setError("当前无法生成可信回答，请稍后再试。");
+      setError("无法连接到 QA 服务（网络或后端错误）。请刷新后重试。");
     } finally {
       clearTimeout(timer);
     }
@@ -98,18 +128,25 @@ export function LocalQaInput({ briefId, scope, scopeTargetId, suggestedQuestions
 
       {response && (
         <div className="flex flex-col gap-2 rounded-card border border-line bg-surface p-3">
-          <span className="text-label">回答（已校验）</span>
-          <p className="font-sans text-[13px] leading-[1.55] text-ink-700">{response.answer}</p>
-          <ul className="flex flex-wrap gap-2">
-            {response.citations.map((c) => (
-              <li
-                key={c.evidence_id}
-                className="rounded-chip border border-orange-600 px-2 py-[2px] font-mono text-[10px] text-orange-600"
-              >
-                {c.label}
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-center gap-2">
+            <span className="text-label">{failureLabel(response.failure_reason)}</span>
+            {response.is_demo_response && <DemoAnswerBadge />}
+          </div>
+          <p className="whitespace-pre-line font-sans text-[13px] leading-[1.55] text-ink-700">
+            {response.answer}
+          </p>
+          {response.citations.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {response.citations.map((c) => (
+                <li
+                  key={c.evidence_id}
+                  className="rounded-chip border border-orange-600 px-2 py-[2px] font-mono text-[10px] text-orange-600"
+                >
+                  {c.label}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
