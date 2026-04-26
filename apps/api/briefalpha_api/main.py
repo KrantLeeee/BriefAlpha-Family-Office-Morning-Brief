@@ -11,6 +11,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from briefalpha_api.cache import get_brief_cache
+from briefalpha_api.config.live_preconditions import check_live_preconditions
+from briefalpha_api.config.mode import resolve_mode
 from briefalpha_api.routers import (
     admin,
     analytics,
@@ -30,6 +32,17 @@ HKT = ZoneInfo("Asia/Hong_Kong")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    mode = resolve_mode()
+    log.info("BRIEFALPHA_MODE=%s", mode)
+    if mode == "live":
+        issues = check_live_preconditions()
+        if issues:
+            log.error(
+                "Live mode preconditions failed:\n  - %s",
+                "\n  - ".join(issues),
+            )
+            raise SystemExit(1)
+    app.state.mode = mode
     verify_secrets()
 
     # Warm-up: if today's brief isn't cached, kick off a background
