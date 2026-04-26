@@ -8,6 +8,7 @@ import { DeepRead } from "@/components/DeepRead";
 import { DrawerHost } from "@/components/DrawerHost";
 import { UploadDrawerHost } from "@/components/UploadDrawerHost";
 import { DemoEvidenceModal } from "@/components/DemoEvidenceModal";
+import { EvidenceTrailDrawer } from "@/components/EvidenceTrailDrawer";
 import { ReviewModal } from "@/components/ReviewModal";
 import { BriefHydrator } from "@/components/BriefHydrator";
 import { ModeBanner } from "@/components/ModeBanner";
@@ -62,6 +63,7 @@ export default async function HomePage() {
       <UploadDrawerHost />
       <DemoEvidenceModal />
       <ReviewModal />
+      <EvidenceTrailDrawer />
     </main>
   );
 }

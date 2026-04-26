@@ -1,4 +1,9 @@
+"use client";
+
+import * as React from "react";
+
 import type { Brief, SourceHealth } from "@/lib/types";
+import { useAppStore } from "@/store/use-app-store";
 
 interface Props {
   deepRead: Brief["deep_read"];
@@ -20,6 +25,8 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export function DeepRead({ deepRead, sourceHealth }: Props) {
+  const openTrail = useAppStore((s) => s.openEvidenceTrailDrawer);
+
   return (
     <section aria-labelledby="deepread-heading" className="border-b border-line bg-canvas">
       <div className="mx-auto max-w-[1440px] px-8 py-6">
@@ -40,9 +47,13 @@ export function DeepRead({ deepRead, sourceHealth }: Props) {
                 <span>{row.label} ↗</span>
               </div>
             ))}
-            <a className="mt-1 font-mono text-[11px] text-orange-600 hover:underline" href="#">
+            <button
+              type="button"
+              onClick={openTrail}
+              className="mt-1 self-start font-mono text-[11px] text-orange-600 hover:underline"
+            >
               查看全部 {deepRead.evidence_total} 条原文
-            </a>
+            </button>
           </div>
 
           <div className="flex flex-col gap-[6px] py-[14px] pl-[18px]">

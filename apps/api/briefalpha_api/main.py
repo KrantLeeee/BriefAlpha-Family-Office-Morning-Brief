@@ -17,6 +17,7 @@ from briefalpha_api.routers import (
     admin,
     analytics,
     brief,
+    evidence,
     judgement,
     portfolio,
     qa,
@@ -100,6 +101,7 @@ app.include_router(research.router, prefix="/api")
 app.include_router(review.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(evidence.router, prefix="/api")
 
 
 @app.get("/api/health")

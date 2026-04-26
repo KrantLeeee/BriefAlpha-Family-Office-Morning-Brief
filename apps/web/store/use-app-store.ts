@@ -27,12 +27,17 @@ interface ReviewModalState {
   judgementId: string | null;
 }
 
+interface EvidenceTrailDrawerState {
+  open: boolean;
+}
+
 interface AppState {
   brief: Brief | null;
   drawer: DrawerState;
   uploadDrawer: UploadDrawerState;
   demoEvidenceModal: DemoEvidenceModalState;
   reviewModal: ReviewModalState;
+  evidenceTrailDrawer: EvidenceTrailDrawerState;
   /** Last 3 QA turns for the active drawer scope */
   qaHistory: { question: string; answer: string }[];
   setBrief: (brief: Brief) => void;
@@ -51,6 +56,8 @@ interface AppState {
   closeDemoEvidenceModal: () => void;
   openReviewModal: (judgementId: string) => void;
   closeReviewModal: () => void;
+  openEvidenceTrailDrawer: () => void;
+  closeEvidenceTrailDrawer: () => void;
   pushQa: (turn: { question: string; answer: string }) => void;
   clearQa: () => void;
   getJudgement: (id: string) => Judgement | undefined;
@@ -62,6 +69,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   uploadDrawer: { open: false, fileId: null },
   demoEvidenceModal: { open: false, card: null, kind: null },
   reviewModal: { open: false, judgementId: null },
+  evidenceTrailDrawer: { open: false },
   qaHistory: [],
   setBrief: (brief) => set({ brief }),
   openDrawer: (judgementId, options) =>
@@ -93,6 +101,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ reviewModal: { open: true, judgementId } }),
   closeReviewModal: () =>
     set({ reviewModal: { open: false, judgementId: null } }),
+  openEvidenceTrailDrawer: () =>
+    set({ evidenceTrailDrawer: { open: true } }),
+  closeEvidenceTrailDrawer: () =>
+    set({ evidenceTrailDrawer: { open: false } }),
   pushQa: (turn) =>
     set((state) => ({
       qaHistory: [...state.qaHistory.slice(-2), turn],

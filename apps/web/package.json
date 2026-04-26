@@ -8,7 +8,7 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:unit": "tsx tests/unit/analytics.spec.ts && tsx tests/unit/api.spec.ts && tsx tests/unit/mode-banner.spec.ts && tsx tests/unit/refresh-button.spec.ts && tsx tests/unit/evidence-card-dispatch.spec.ts && tsx tests/unit/local-qa-input.spec.ts && tsx tests/unit/review-modal.spec.ts && tsx tests/unit/macro-playbook.spec.ts",
+    "test:unit": "tsx tests/unit/analytics.spec.ts && tsx tests/unit/api.spec.ts && tsx tests/unit/mode-banner.spec.ts && tsx tests/unit/refresh-button.spec.ts && tsx tests/unit/evidence-card-dispatch.spec.ts && tsx tests/unit/local-qa-input.spec.ts && tsx tests/unit/review-modal.spec.ts && tsx tests/unit/macro-playbook.spec.ts && tsx tests/unit/evidence-trail-drawer.spec.ts",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium"
   },
