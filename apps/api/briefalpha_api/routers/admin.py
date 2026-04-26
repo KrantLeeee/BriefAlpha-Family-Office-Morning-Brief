@@ -12,18 +12,23 @@ import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, func, select
 
 from briefalpha_api.audit import AuditRecord, record_audit
 from briefalpha_api.auth import require_admin_token
+from briefalpha_api.cache import invalidate_brief_cache
 from briefalpha_api.db.models import AuditLog, SourceHealthHistory
 from briefalpha_api.db.session import get_session
+from briefalpha_api.routers.brief import _spawn_generation, _today_hkt
 from briefalpha_api.settings import CONFIG_DIR, get_settings
 
 router = APIRouter()
+
+HKT = ZoneInfo("Asia/Hong_Kong")
 
 
 # ---------------------------------------------------------------------------
@@ -192,3 +197,39 @@ async def toggle_audit_mode(
         "requested_mode": payload.mode,
         "note": "Recorded the toggle intent. Update BRIEFALPHA_AUDIT_MODE in settings to take effect on next start.",
     }
+
+
+# ---------------------------------------------------------------------------
+# User-facing refresh (Task 2.7)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/admin/data/refresh")
+async def refresh_data(request: Request) -> dict[str, Any]:
+    """Mode-aware refresh for the frontend Refresh button.
+
+    Demo mode invalidates cache only — the fixture is re-served with a
+    fresh `last_refreshed_at` stamp; we do NOT trigger ingestion since
+    there is no real data to fetch. Live mode invalidates cache AND
+    respawns brief generation, which internally re-runs ingestion.
+
+    Differs from `/admin/brief/regenerate` which unconditionally respawns
+    generation; this endpoint is the user-facing surface the UI calls
+    and returns mode-aware metadata (refreshed_at_hkt, note) for display.
+    """
+    mode = getattr(request.app.state, "mode", "live")
+    brief_id = _today_hkt()
+
+    await invalidate_brief_cache(brief_id)
+
+    if mode == "demo":
+        now = datetime.now(tz=HKT)
+        return {
+            "status": "demo_refreshed",
+            "brief_id": brief_id,
+            "refreshed_at_hkt": now.strftime("%H:%M"),
+            "note": "示例数据，非实时采集",
+        }
+
+    _spawn_generation(brief_id)
+    return {"status": "queued", "brief_id": brief_id}

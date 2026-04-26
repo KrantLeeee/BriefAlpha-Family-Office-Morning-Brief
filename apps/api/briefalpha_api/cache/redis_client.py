@@ -123,6 +123,18 @@ async def delete_brief_cache(brief_date_hkt: str) -> None:
         log.warning("redis DEL failed: %s", exc)
 
 
+async def invalidate_brief_cache(brief_id: str) -> None:
+    """Drop the cached brief so the next GET re-runs the cache-miss flow.
+
+    Thin wrapper around `delete_brief_cache` exposed as an
+    invalidation-named helper for callers (e.g. the user-facing
+    `/admin/data/refresh` endpoint) where "invalidate" reads more
+    naturally than "delete". Behaves as a no-op when Redis is
+    unavailable (in-memory / test mode).
+    """
+    await delete_brief_cache(brief_id)
+
+
 # ---------------------------------------------------------------------------
 # Generic JSON / list helpers (used by source_health cache, research queue,
 # QA context, and admin diagnostics). All operations are best-effort and
