@@ -183,7 +183,8 @@ export interface QaResponse {
     | "out_of_scope"
     | "empty_question"
     | "demo_mode_no_match"
-    | "demo_mode_prebaked";
+    | "demo_mode_prebaked"
+    | "brief_expired";
   is_demo_response?: boolean;
 }
 
