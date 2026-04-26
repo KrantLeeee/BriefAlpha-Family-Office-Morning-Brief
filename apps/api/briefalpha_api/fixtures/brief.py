@@ -21,6 +21,23 @@ def get_demo_brief() -> dict[str, Any]:
         "no_direct_portfolio_link": False,
         "conservative": False,
         "degraded_sources": [],
+        "system": {
+            "mode": "demo",
+            "status": "ready",
+            "generated_at": "2026-04-25T08:24:00+08:00",
+            "last_refreshed_at": "2026-04-25T08:24:00+08:00",
+            "data_quality": "fixture",
+        },
+        "macro_pulse": [
+            {"name": "2Y UST", "value": "4.61%", "delta": "+6bp", "threshold": "<4.50% benign", "status": "watch"},
+            {"name": "10Y UST", "value": "4.32%", "delta": "+3bp", "threshold": "<4.20% benign", "status": "watch"},
+            {"name": "DXY", "value": "104.8", "delta": "+0.3", "threshold": "<105 benign", "status": "ok"},
+            {"name": "VIX", "value": "16.2", "delta": "+0.9", "threshold": "<20 benign", "status": "ok"},
+            {"name": "WTI", "value": "$78.4", "delta": "+0.8%", "threshold": "<$85 benign", "status": "ok"},
+            {"name": "Gold", "value": "$2,318", "delta": "+0.4%", "threshold": "narrative-only", "status": "ok"},
+            {"name": "USDCNH", "value": "7.241", "delta": "+0.05", "threshold": "<7.30 benign", "status": "ok"},
+            {"name": "HSI futures", "value": "17,420", "delta": "+0.6%", "threshold": "directional", "status": "ok"},
+        ],
         "base_case": {
             "headline_label": "今日核心判断",
             "headline": "英伟达下调 Q1 指引—30% 科技仓位需复核",
@@ -158,6 +175,12 @@ def get_demo_brief() -> dict[str, Any]:
                 "metadata": "SEC EDGAR 04-24 20:15 EDT · 4 来源 · NVDA 18% 核心持仓 · 路透 8% vs 彭博 10%—待复核",
                 "evidence_count": 4,
                 "requires_review": True,
+                "review": {
+                    "reason": "source_conflict",
+                    "note": "路透 8% vs 彭博 10%—下调幅度分歧",
+                    "status": "open",
+                    "reviewed_at": None,
+                },
                 "no_direct_portfolio_link": False,
                 "reasoning_chain": {
                     "observed": "英伟达盘后下调 Q1 数据中心营收指引约 8-10%；盘后股价跌 6%",
@@ -172,7 +195,8 @@ def get_demo_brief() -> dict[str, Any]:
                         "source_label": "SEC EDGAR · 04-24 20:15 EDT",
                         "title": "英伟达 8-K 指引更新",
                         "quote": "「…Q1 数据中心营收预期较前次指引下调约 8-10%，主因企业端需求趋缓与超大规模厂商库存正常化…」",
-                        "source_link": "https://www.sec.gov/Archives/edgar/...",
+                        "source_link": "briefalpha://demo/ev_nvda_8k",
+                        "link_kind": "internal_demo",
                         "conflict": False,
                     },
                     {
@@ -181,7 +205,8 @@ def get_demo_brief() -> dict[str, Any]:
                         "source_label": "路透 vs 彭博 · ⚠ 冲突",
                         "title": "来源对下调幅度有分歧",
                         "quote": "路透：「英伟达下调 Q1 数据中心营收指引 8%」 · 彭博：「较一致预期下调约 10%」",
-                        "source_link": "https://www.reuters.com/...",
+                        "source_link": "briefalpha://demo/ev_reuters_bbg",
+                        "link_kind": "internal_demo",
                         "conflict": True,
                     },
                 ],
@@ -189,12 +214,14 @@ def get_demo_brief() -> dict[str, Any]:
                     {
                         "evidence_id": "ev_axios_recap",
                         "label": "Axios · 后续报道",
-                        "source_link": "https://www.axios.com/...",
+                        "source_link": "briefalpha://demo/ev_axios_recap",
+                        "link_kind": "internal_demo",
                     },
                     {
                         "evidence_id": "ev_yfinance_quote",
                         "label": "yfinance · 盘后报价",
-                        "source_link": "yfinance://NVDA",
+                        "source_link": "briefalpha://demo/ev_yfinance_quote",
+                        "link_kind": "internal_demo",
                     },
                 ],
                 "suggested_questions": [
@@ -211,6 +238,7 @@ def get_demo_brief() -> dict[str, Any]:
                 "metadata": "HKEX 07:30 HKT · 2 来源 · 0700.HK 15% 持仓 · 管理层信号",
                 "evidence_count": 2,
                 "requires_review": False,
+                "review": None,
                 "no_direct_portfolio_link": False,
                 "reasoning_chain": {
                     "observed": "腾讯公告扩大回购授权 50%，为 2024 以来最大幅度",
@@ -225,7 +253,8 @@ def get_demo_brief() -> dict[str, Any]:
                         "source_label": "HKEX · 07:30 HKT",
                         "title": "腾讯控股回购授权公告",
                         "quote": "「董事会决议将 2026 年股份回购授权上限从 1,000 亿港元提高至 1,500 亿港元…」",
-                        "source_link": "https://www1.hkexnews.hk/...",
+                        "source_link": "briefalpha://demo/ev_hkex_buyback",
+                        "link_kind": "internal_demo",
                         "conflict": False,
                     },
                 ],
@@ -233,7 +262,8 @@ def get_demo_brief() -> dict[str, Any]:
                     {
                         "evidence_id": "ev_scmp_followup",
                         "label": "SCMP · 后续评论",
-                        "source_link": "https://www.scmp.com/...",
+                        "source_link": "briefalpha://demo/ev_scmp_followup",
+                        "link_kind": "internal_demo",
                     },
                 ],
                 "suggested_questions": [
@@ -249,6 +279,7 @@ def get_demo_brief() -> dict[str, Any]:
                 "metadata": "Fed RSS 04-24 14:00 EDT · 3 来源 · TLT 10% + 利率敏感 22% · 久期风险",
                 "evidence_count": 3,
                 "requires_review": False,
+                "review": None,
                 "no_direct_portfolio_link": False,
                 "reasoning_chain": {
                     "observed": "Williams 表示库存生产者价格预期仍偏高，未排除年内加息一次",
@@ -263,7 +294,8 @@ def get_demo_brief() -> dict[str, Any]:
                         "source_label": "Fed RSS · 04-24 14:00 EDT",
                         "title": "Williams 于 NABE 会议讲话",
                         "quote": "「Inflation may demand a mildly restrictive stance for some additional time...」",
-                        "source_link": "https://www.federalreserve.gov/...",
+                        "source_link": "briefalpha://demo/ev_fed_williams_speech",
+                        "link_kind": "internal_demo",
                         "conflict": False,
                     },
                 ],
@@ -280,6 +312,7 @@ def get_demo_brief() -> dict[str, Any]:
                 "label": "港股开盘——观察腾讯回购信号在港股互联网仓位的扩散",
                 "detail": "关注 0700.HK / 9988.HK / 3690.HK 反应，确认回购是否支撑港股互联网",
                 "related_judgement_ids": ["j2"],
+                "related_evidence_ids": ["ev_hkex_buyback", "ev_scmp_followup"],
                 "is_next": True,
             },
             {
@@ -288,6 +321,7 @@ def get_demo_brief() -> dict[str, Any]:
                 "label": "美股开盘——英伟达现金交易反应将定调今日科技 beta",
                 "detail": "若指引下调外溢至 AI 算力链，超大规模相关持仓需进入今日复核",
                 "related_judgement_ids": ["j1"],
+                "related_evidence_ids": ["ev_nvda_8k", "ev_reuters_bbg"],
                 "is_next": False,
             },
         ],
@@ -315,10 +349,10 @@ def get_demo_source_health() -> dict[str, Any]:
         "as_of_hkt": "08:24",
         "overall": "ok",
         "rows": [
-            {"name": "行情", "status": "ok", "detail": "34 个标的"},
-            {"name": "新闻", "status": "ok", "detail": "125 条"},
-            {"name": "研报", "status": "active", "detail": "1 个上传"},
-            {"name": "官方公告", "status": "ok", "detail": "10 条"},
+            {"name": "行情", "status": "ok", "detail": "34 个标的", "is_demo": True},
+            {"name": "新闻", "status": "ok", "detail": "125 条", "is_demo": True},
+            {"name": "研报", "status": "active", "detail": "1 个上传", "is_demo": True},
+            {"name": "官方公告", "status": "ok", "detail": "10 条", "is_demo": True},
         ],
     }
 
