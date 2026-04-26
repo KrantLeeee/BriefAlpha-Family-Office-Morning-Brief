@@ -8,6 +8,7 @@ import { DeepRead } from "@/components/DeepRead";
 import { DrawerHost } from "@/components/DrawerHost";
 import { UploadDrawerHost } from "@/components/UploadDrawerHost";
 import { BriefHydrator } from "@/components/BriefHydrator";
+import { ModeBanner } from "@/components/ModeBanner";
 import { getBriefToday, getSourceHealth } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen bg-canvas">
       <BriefHydrator brief={brief} />
+      <ModeBanner system={brief.system} />
       <TopBar
         delivery={brief.delivered_at_hkt}
         freezeWindow={brief.freeze_window_hkt}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/store/use-app-store";
+import { RefreshButton } from "./RefreshButton";
 
 interface Props {
   delivery: string;
@@ -40,6 +41,8 @@ export function TopBar({ delivery, freezeWindow, anonymized, auditMode, stale, d
           <span className="font-mono text-[11px] text-ink-500" aria-label="brief 时间窗口">
             更新 {delivery} HKT · {freezeWindow}
           </span>
+
+          <RefreshButton />
 
           <button
             type="button"
