@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useState } from "react";
 
 import type { Judgement } from "@/lib/types";
@@ -7,8 +8,43 @@ import { useAppStore } from "@/store/use-app-store";
 
 const VISIBLE_BY_DEFAULT = 3;
 
+function renderLevelLabel(j: Judgement, openReviewModal: (id: string) => void) {
+  if (!j.review) {
+    return (
+      <span
+        className={[
+          "font-sans text-[11px] font-medium",
+          j.level === "elevated" ? "text-orange-600" : "text-ink-500",
+        ].join(" ")}
+      >
+        {j.level_label}
+      </span>
+    );
+  }
+  const isReviewed = j.review.status === "reviewed";
+  const cleaned = j.level_label.replace(" · ⚠ 待复核", "");
+  const label = isReviewed ? `${cleaned} · ✓ 已审` : j.level_label;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        openReviewModal(j.id);
+      }}
+      className={[
+        "font-sans text-[11px] font-medium underline-offset-2 hover:underline",
+        isReviewed ? "text-ink-500" : "text-orange-600",
+      ].join(" ")}
+      aria-label={`复核详情 ${j.title}`}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function JudgementList({ judgements }: { judgements: Judgement[] }) {
   const openDrawer = useAppStore((s) => s.openDrawer);
+  const openReviewModal = useAppStore((s) => s.openReviewModal);
   const [showAll, setShowAll] = useState(false);
 
   const sorted = [...judgements].sort((a, b) => a.rank - b.rank);
@@ -42,15 +78,24 @@ export function JudgementList({ judgements }: { judgements: Judgement[] }) {
               j.level === "elevated" ? "bg-warningWash border-l-[3px] border-l-orange-600" : "",
             ].join(" ")}
           >
-            <button
-              type="button"
+            <div
+              id={`judgement-row-${j.id}`}
+              role="button"
+              tabIndex={0}
               onClick={() =>
                 openDrawer(j.id, {
                   triggerElementId: `judgement-row-${j.id}`,
                 })
               }
-              id={`judgement-row-${j.id}`}
-              className="grid w-full grid-cols-[18px_60px_1fr_118px] items-start gap-4 text-left"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openDrawer(j.id, {
+                    triggerElementId: `judgement-row-${j.id}`,
+                  });
+                }
+              }}
+              className="grid w-full grid-cols-[18px_60px_1fr_118px] items-start gap-4 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-600"
             >
               <span
                 className={[
@@ -60,14 +105,7 @@ export function JudgementList({ judgements }: { judgements: Judgement[] }) {
               >
                 {String(j.rank).padStart(2, "0")}
               </span>
-              <span
-                className={[
-                  "font-sans text-[11px] font-medium",
-                  j.level === "elevated" ? "text-orange-600" : "text-ink-500",
-                ].join(" ")}
-              >
-                {j.level_label}
-              </span>
+              {renderLevelLabel(j, openReviewModal)}
               <span className="flex flex-col gap-[5px]">
                 <span
                   className={[
@@ -82,7 +120,7 @@ export function JudgementList({ judgements }: { judgements: Judgement[] }) {
               <span className="text-right font-mono text-[11px] text-ink-700">
                 证据 ({j.evidence_count}) →
               </span>
-            </button>
+            </div>
           </li>
         ))}
       </ul>
