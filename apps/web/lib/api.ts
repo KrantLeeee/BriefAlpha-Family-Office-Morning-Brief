@@ -19,26 +19,18 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /**
- * Server component fetcher: tolerates the API being offline so the design
- * stays previewable. Falls back to the bundled fixture so visual review
- * works without `make dev-api` running.
+ * Fetches today's brief from the API. The API itself decides whether to
+ * serve fixture (demo mode) or live data — the client is intentionally
+ * NOT a silent fallback layer. If the request fails, the error
+ * propagates so the page can render an explicit error state via
+ * <ModeBanner status="error" />.
  */
 export async function getBriefToday(): Promise<Brief> {
-  try {
-    return await fetchJson<Brief>("/api/brief/today");
-  } catch {
-    const fallback = await import("./fixtures").then((m) => m.demoBrief);
-    return { ...fallback, stale: true };
-  }
+  return fetchJson<Brief>("/api/brief/today");
 }
 
 export async function getSourceHealth(): Promise<SourceHealth> {
-  try {
-    return await fetchJson<SourceHealth>("/api/source-health");
-  } catch {
-    const fallback = await import("./fixtures").then((m) => m.demoSourceHealth);
-    return fallback;
-  }
+  return fetchJson<SourceHealth>("/api/source-health");
 }
 
 export async function postQa(body: {
