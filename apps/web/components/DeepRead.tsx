@@ -68,7 +68,10 @@ export function DeepRead({ deepRead, sourceHealth }: Props) {
               >
                 <span className="text-ink-700">{row.name}</span>
                 <span className={STATUS_COLOR[row.status] ?? "text-ink-500"}>{STATUS_LABEL[row.status] ?? row.status}</span>
-                <span className="text-ink-500">{row.detail}</span>
+                <span className="text-ink-500">
+                  {row.detail}
+                  {row.is_demo && <span className="ml-1 text-orange-600">(示例)</span>}
+                </span>
               </div>
             ))}
           </div>

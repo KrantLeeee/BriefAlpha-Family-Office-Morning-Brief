@@ -83,6 +83,7 @@ async def aggregate_source_health() -> dict[str, Any]:
                             else "—"
                         ),
                         "recorded_at": r.recorded_at.isoformat(),
+                        "is_demo": False,
                     }
                 )
 
@@ -102,6 +103,7 @@ async def aggregate_source_health() -> dict[str, Any]:
                     else "no uploads"
                 ),
                 "recorded_at": datetime.now(timezone.utc).isoformat(),
+                "is_demo": False,
             }
         )
 
