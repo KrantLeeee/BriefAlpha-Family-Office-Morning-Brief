@@ -39,6 +39,26 @@ LEVEL_LABEL = {
 }
 
 
+def classify_link_kind(url: str | None) -> str:
+    """Map a raw evidence URL to one of the four LinkKind values.
+
+    The frontend uses link_kind to decide click behavior:
+      external          → open in new tab
+      internal_demo     → open in-app modal explaining "fixture content"
+      internal_research → route to /research/<id>
+      unavailable       → render as disabled
+    """
+    if not url or url == "#":
+        return "unavailable"
+    if url.startswith("briefalpha://demo/"):
+        return "internal_demo"
+    if url.startswith(("research://", "yfinance://")):
+        return "internal_research"
+    if url.startswith(("http://", "https://")):
+        return "external"
+    return "unavailable"
+
+
 def build_brief_artifact(
     *,
     pipeline_output: dict[str, Any],
@@ -248,11 +268,13 @@ def _build_judgements(
                 continue
             sup = ev.get("supplementary_sources") or []
             for s in sup[:1]:
+                url = s.get("url") or ""
                 supplementary.append(
                     {
                         "evidence_id": ev["evidence_id"],
                         "label": s.get("source_name") or "辅助来源",
-                        "source_link": s.get("url") or "",
+                        "source_link": url,
+                        "link_kind": classify_link_kind(url),
                     }
                 )
         out.append(
@@ -328,13 +350,15 @@ def _build_evidence_card(ev: dict[str, Any], idx: int) -> dict[str, Any]:
     source_name = ev.get("source_name", "")
     pub = ev.get("published_at") or ""
     pub_label = pub[:16] if isinstance(pub, str) else ""
+    url = ev.get("raw_source_url") or ev.get("source_link") or "#"
     return {
         "evidence_id": ev["evidence_id"],
         "index_label": label,
         "source_label": " · ".join(filter(None, [source_name or source_tier, pub_label])),
         "title": ev.get("title", ""),
         "quote": ev.get("excerpt", ""),
-        "source_link": ev.get("raw_source_url") or ev.get("source_link") or "#",
+        "source_link": url,
+        "link_kind": classify_link_kind(url),
         "conflict": bool(ev.get("conflict")),
     }
 
