@@ -127,6 +127,11 @@ def build_brief_artifact(
         "playbook_events": playbook_events,
         "deep_read": deep_read,
         "macro_pulse_collapsed": {"label": "宏观脉搏 · 8 项指标", "expand_label": "展开 8 项指标"},
+        # The TS contract (`apps/web/lib/types.ts:Brief.macro_pulse`) requires this
+        # field. The indicator pipeline isn't implemented yet, so we emit an empty
+        # list — the frontend renders the collapsed shell without crashing
+        # `<MacroPulseExpanded>` on `items.map(...)`.
+        "macro_pulse": [],
         "footer": {"left": footer_left, "right": "仅供信息支持，不构成投资建议。"},
     }
 
