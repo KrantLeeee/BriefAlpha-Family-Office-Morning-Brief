@@ -141,26 +141,91 @@ async def _retention_sweep() -> None:
         log.warning("retention sweep failed: %s", exc)
 
 
+def _transform_sec(content: bytes) -> bytes:
+    """Transform raw SEC company_tickers.json into the loader's
+    `{"mappings": {ticker: padded_cik}}` shape.
+
+    Raw SEC schema: `{"0": {"cik_str": int, "ticker": str, "title": str}, ...}`.
+    CIK is zero-padded to 10 chars to match the SEC EDGAR URL contract.
+    """
+    import json as _json
+
+    data = _json.loads(content)
+    mappings: dict[str, str] = {}
+    for entry in data.values():
+        if not isinstance(entry, dict):
+            continue
+        ticker = entry.get("ticker")
+        cik = entry.get("cik_str")
+        if not ticker or cik is None:
+            continue
+        mappings[str(ticker).upper()] = str(cik).zfill(10)
+    return _json.dumps({"mappings": mappings}, ensure_ascii=False).encode("utf-8")
+
+
+def _transform_hkex(content: bytes) -> bytes:
+    """Transform HKEX ListOfSecurities.xlsx into `{"mappings": {ticker: code}}`.
+
+    The xlsx has a 5-digit numeric stock code in column A; we coerce
+    that into the canonical `"{lstripped}.HK"` ticker form (e.g. 00700 → 0700.HK).
+    """
+    import io as _io
+    import json as _json
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(_io.BytesIO(content), read_only=True, data_only=True)
+    ws = wb.active
+    mappings: dict[str, str] = {}
+    for row in ws.iter_rows(values_only=True):
+        if not row:
+            continue
+        cell = row[0]
+        if cell is None:
+            continue
+        s = str(cell).strip()
+        if not s.isdigit() or len(s) > 5:
+            continue
+        code = s.zfill(5)
+        ticker = f"{code.lstrip('0') or '0'}.HK"
+        mappings[ticker] = code
+    return _json.dumps({"mappings": mappings}, ensure_ascii=False).encode("utf-8")
+
+
 async def _refresh_symbol_maps() -> None:
-    """Best-effort weekly download of public symbol maps. We tolerate
-    network failures so cron noise doesn't accumulate offline."""
+    """Best-effort weekly download + transform of public symbol maps.
+
+    We tolerate network failures so cron noise doesn't accumulate offline.
+    The on-disk files are the loader-friendly `{"mappings": {...}}` shape,
+    NOT the raw upstream payload — the loader (`ingestion/symbol_map.py`)
+    only knows how to read `mappings`.
+    """
     import httpx
 
-    targets = {
-        "sec_company_tickers.json": "https://www.sec.gov/files/company_tickers.json",
-        "hkex_stock_codes.json": "https://www.hkex.com.hk/eng/services/trading/securities/securitieslists/ListOfSecurities.xlsx",
-    }
+    targets = [
+        (
+            "sec_company_tickers.json",
+            "https://www.sec.gov/files/company_tickers.json",
+            _transform_sec,
+        ),
+        (
+            "hkex_stock_codes.json",
+            "https://www.hkex.com.hk/eng/services/trading/securities/securitieslists/ListOfSecurities.xlsx",
+            _transform_hkex,
+        ),
+    ]
     out_dir = DATA_DIR / "symbol_maps"
     out_dir.mkdir(parents=True, exist_ok=True)
     headers = {"User-Agent": "BriefAlpha/0.1 ops@briefalpha.local"}
 
     async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
-        for fname, url in targets.items():
+        for fname, url, transform in targets:
             try:
                 r = await client.get(url)
                 r.raise_for_status()
-                (out_dir / fname).write_bytes(r.content)
-                log.info("symbol_map refresh: %s ok (%d bytes)", fname, len(r.content))
+                payload = transform(r.content)
+                (out_dir / fname).write_bytes(payload)
+                log.info("symbol_map refresh: %s ok (%d bytes)", fname, len(payload))
             except Exception as exc:  # noqa: BLE001
                 log.warning("symbol_map refresh %s failed: %s", fname, exc)
 
