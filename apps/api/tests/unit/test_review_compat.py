@@ -1,5 +1,3 @@
-import pytest
-
 from briefalpha_api.pipeline.artifact import derive_review
 
 
