@@ -11,3 +11,11 @@ class SystemMeta(BaseModel):
     generated_at: str | None = None
     last_refreshed_at: str | None = None
     data_quality: Literal["fixture", "live", "partial", "unavailable"]
+
+
+class MacroPulseItem(BaseModel):
+    name: str
+    value: str
+    delta: str
+    threshold: str
+    status: Literal["ok", "watch", "alert"]
