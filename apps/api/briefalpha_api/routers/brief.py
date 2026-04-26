@@ -91,13 +91,15 @@ def _empty_brief_skeleton(brief_id: str) -> dict[str, Any]:
     rely on `system.status == 'generating'` to show a loading state rather
     than render zeros as real data.
     """
+    from briefalpha_api.settings import get_settings  # local import to avoid circulars at module load
+    settings = get_settings()
     return {
         "brief_id": brief_id,
         "brief_date_hkt": brief_id,
         "delivered_at_hkt": "",
         "freeze_window_hkt": "",
         "stale": False,
-        "audit_mode": "compliance",
+        "audit_mode": settings.audit_mode,
         "anonymized": True,
         "no_direct_portfolio_link": False,
         "conservative": False,
@@ -125,7 +127,9 @@ def _empty_brief_skeleton(brief_id: str) -> dict[str, Any]:
 @router.get("/brief/today")
 async def brief_today(request: Request) -> dict[str, Any]:
     brief_id = _today_hkt()
-    mode = request.app.state.mode  # "demo" | "live", set by lifespan
+    # Default to "live" if state.mode is unset (lifespan didn't run / atypical
+    # TestClient usage) — never accidentally serve fixture in unknown contexts.
+    mode = getattr(request.app.state, "mode", "live")
     cached = await get_brief_cache(brief_id)
 
     if cached is not None:

@@ -66,3 +66,37 @@ def test_demo_response_includes_last_refreshed_timestamp(monkeypatch):
         assert last is not None
         # ISO8601 with timezone
         assert "+08:00" in last or "+0800" in last
+
+
+def test_live_skeleton_audit_mode_follows_settings(monkeypatch):
+    """Live skeleton's audit_mode should mirror settings.audit_mode (default 'demo'),
+    not hardcode 'compliance'."""
+    app = _make_app(monkeypatch, "live")
+    with TestClient(app) as client:
+        body = client.get("/api/brief/today").json()
+        # default settings.audit_mode is "demo"
+        assert body["audit_mode"] == "demo"
+
+
+def test_brief_today_defaults_to_live_when_state_missing(monkeypatch):
+    """If app.state.mode is missing (atypical), the route should treat it as
+    live (never accidentally serve fixture)."""
+    monkeypatch.setenv("BRIEFALPHA_MODE", "demo")
+    monkeypatch.setenv("BRIEFALPHA_DISABLE_SCHEDULER", "1")
+    monkeypatch.setenv("BRIEFALPHA_DISABLE_REDIS", "1")
+    import importlib
+    import briefalpha_api.main
+    importlib.reload(briefalpha_api.main)
+    from briefalpha_api.main import app
+    # Force-remove app.state.mode after lifespan would have set it; route should
+    # still serve a sane response.
+    with TestClient(app) as client:
+        # mid-test wipe: simulate the missing-state scenario
+        if hasattr(app.state, "mode"):
+            delattr(app.state, "mode")
+        body = client.get("/api/brief/today").json()
+        # safer side: live skeleton, never fixture
+        assert body["base_case"]["headline"] == ""
+        assert body["judgements"] == []
+        assert body["system"]["mode"] == "live"
+        assert body["system"]["status"] == "generating"
