@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -187,3 +187,21 @@ class AnalyticsEvent(Base):
     user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     brief_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class ReviewOverride(Base):
+    """Persisted user action: "我已审阅" on a judgement.
+
+    Single-user assumption (no user_id column). brief_id+judgement_id
+    forms a logical primary key (UniqueConstraint enforces it).
+    """
+    __tablename__ = "review_overrides"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    brief_id: Mapped[str] = mapped_column(String(64), index=True)
+    judgement_id: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16))  # "open" | "reviewed"
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+
+    __table_args__ = (UniqueConstraint("brief_id", "judgement_id", name="uq_review_brief_judgement"),)

@@ -21,6 +21,7 @@ from briefalpha_api.routers import (
     portfolio,
     qa,
     research,
+    review,
     source_health,
 )
 from briefalpha_api.scheduler.jobs import build_scheduler
@@ -96,6 +97,7 @@ app.include_router(qa.router, prefix="/api")
 app.include_router(source_health.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
 app.include_router(research.router, prefix="/api")
+app.include_router(review.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 
