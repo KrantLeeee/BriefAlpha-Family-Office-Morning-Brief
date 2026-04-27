@@ -30,6 +30,79 @@ docs/         Designs (.pen) and reference docs
 
 ## First-time setup
 
+### Recommended setup
+
+1. Install dependencies.
+
+```bash
+pnpm install
+cd apps/api && uv sync && cd ../..
+```
+
+2. Create local secrets, migrate the database, and seed the demo portfolio.
+
+```bash
+make init-secrets
+make db-migrate
+python scripts/seed_demo_portfolio.py
+```
+
+3. Configure `.env`.
+
+```bash
+BRIEFALPHA_MODE=live
+BRIEFALPHA_LLM_PROVIDER=openai
+BRIEFALPHA_AUDIT_MODE=demo
+BRIEFALPHA_REDIS_URL=redis://localhost:6379/0
+BRIEFALPHA_DB_URL=sqlite+aiosqlite:///./data/briefalpha.db
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+
+FINNHUB_API_KEY=...
+NEWSAPI_KEY=...
+```
+
+4. Add LLM keys in `data/.secrets/llm_api_keys.json`.
+
+```json
+{
+  "anthropic": "replace-me",
+  "openai": "sk-...",
+  "vision_openai": "sk-...",
+  "vision_anthropic": "replace-me"
+}
+```
+
+5. Confirm `packages/config/data_sources.yml`.
+
+```yaml
+sec:
+  user_agent: "BriefAlpha/0.1 your.name@yourdomain.com"
+
+providers:
+  gdelt:
+    enabled: false
+  finnhub:
+    enabled: true
+  newsapi:
+    enabled: true
+  google_news_rss:
+    enabled: true
+```
+
+6. Start the app in three terminals.
+
+```bash
+make dev-redis
+make dev-api
+make dev-web
+```
+
+Then open `http://localhost:3000`. The API runs in live mode, uses OpenAI
+for text/vision, pulls market/news/official data, and can parse uploaded
+research PDFs.
+
+### Full setup guide
+
 ```bash
 # 1. Install JS dependencies
 pnpm install
@@ -138,10 +211,21 @@ fixture content as "live".
   `AppName/version contact@yourdomain.com`. The default value contains
   `example.com` and is rejected. SEC's RSS feed requires this header.
 
-The default ingestion adapters (yfinance, GDELT, Google News RSS, SEC
-EDGAR RSS, HKEX RSS) are key-less, so no other secrets are required for
-a baseline live setup. `FINNHUB_API_KEY` / `ALPHA_VANTAGE_API_KEY` etc.
-in `.env.example` are placeholders for future paid adapters.
+The current live ingestion path uses these real public sources:
+
+- **Market:** yfinance first, Stooq fallback for US symbols. No key required.
+- **News:** GDELT is disabled by default because it is often unreachable on
+  CN/HK networks. The adapter tries Finnhub if `FINNHUB_API_KEY` is set,
+  then NewsAPI if `NEWSAPI_KEY` is set, then Google News RSS as the key-less
+  fallback.
+- **Official:** SEC EDGAR Atom/RSS and HKEX RSS. SEC requires the configured
+  `sec.user_agent`.
+- **Research:** user-uploaded public/permissioned PDFs, parsed into
+  `source_tier=research` evidence.
+
+For the best live demo, set `FINNHUB_API_KEY` and optionally `NEWSAPI_KEY`.
+`ALPHA_VANTAGE_API_KEY` is still a placeholder for a future market adapter;
+the current market code only uses yfinance/Stooq.
 
 ### Refresh button
 
@@ -219,3 +303,142 @@ changes:
 ```bash
 pnpm --filter @briefalpha/web test:e2e -- --grep "visual"
 ```
+
+## 关于选型和设计的思考
+
+### 1. 我对题目的判断
+
+我没有把它做成“新闻聚合器”，而是做成一个晨会前的 **5 分钟决策入口**。家办合伙人早上最缺的不是更多信息，而是三件事：昨晚发生了什么、和我的持仓有什么关系、今天晨会该先讨论什么。
+
+所以我的取舍标准很明确：**可信度 > 可追溯 > 时效 > 覆盖面 > 观点丰富度**。如果一条信息不能被定位到原文，或者不能解释为什么进入晨报，我宁愿不放进主简报。
+
+<img src="docs/images/briefalpha-main-live.png" alt="BriefAlpha live morning brief main screen" width="720">
+
+### 2. 数据源选择
+
+我选了四层信息源：行情、新闻、官方公告、研报 PDF。
+
+- **行情：yfinance + Stooq**  
+  用来回答“市场是否已经确认这个事件”。我没有优先接付费行情源，因为本题要求是本周内做出可用 MVP，免费公开源的覆盖和接入速度更重要。
+
+- **新闻：Finnhub / NewsAPI / Google News RSS**  
+  用来补时效。新闻源天然噪音高，所以我不把新闻当最终事实，只把它当“事件发现层”。没有直接选雪球/社区作为主源，因为社区观点很有价值，但信噪比和可追溯性不适合放在晨报主判断里。
+
+- **官方公告：SEC EDGAR + HKEX RSS**  
+  这是最高可信层。只要新闻和官方公告冲突，我不会让模型猜谁对，而是把它标成待复核。
+
+- **研报 PDF 上传**  
+  我选择“用户上传研报”而不是随机爬公开研报，因为家办真实场景里，研报往往来自他们已有权限的渠道；上传模式更贴近工作流，也更容易控制合规边界。
+
+一句话：**官方源定事实，行情源定市场反应，新闻源定时效，研报源定深度。**
+
+<img src="docs/images/briefalpha-upload-research.png" alt="Research PDF upload parse report" width="720">
+
+### 3. 什么能进晨报
+
+我的过滤标准不是“重要新闻”，而是“会不会改变今天晨会的讨论顺序”。
+
+进入主简报的信息通常满足至少一条：
+
+- 和持仓、watchlist 或同类资产有关。
+- 来自官方公告，或被多个来源互相印证。
+- 发生在晨会前的有效时间窗内。
+- 涉及业绩、指引、监管、政策、重大价格异动。
+- 能给出可点击、可引用、可追问的原文证据。
+
+不会优先进入主简报的信息：
+
+- 没有原文链接或不可定位的二手转述。
+- 纯观点、纯情绪、重复转载。
+- 和组合无关且没有市场级影响。
+- 模型无法通过引用、数字、时间窗校验的内容。
+
+### 4. 排序和权重
+
+我用 BPS（Brief Priority Score）做排序，它不是交易信号，只是晨报编辑分。
+
+`final_impact_score = base_score × portfolio_linkage × event_materiality × market_confirmation`
+
+这里的产品逻辑是：
+
+- **source reliability**：官方公告高于行情，行情高于新闻，新闻高于普通研报观点。
+- **recency**：晨报只关心能影响今天开会的信息，旧信息降权。
+- **portfolio linkage**：和组合相关的信息优先，但这个关联只在本地算，不传给 LLM。
+- **event materiality**：业绩、指引、监管、政策高于普通新闻。
+- **market confirmation**：同一事件被行情或多源确认才加分；冲突则降权并标记复核。
+
+我还加了 source tier floor，避免最后的简报全是行情 tick 或全是新闻标题。晨报必须像一个投资助理整理过，而不是像搜索结果页。
+
+<img src="docs/images/briefalpha-evidence-trail.png" alt="Evidence trail with source-tier filters" width="720">
+
+### 5. 去重和冲突
+
+去重的原则是：**同一事件只讲一次，但不丢掉佐证来源。**
+
+系统会按内容 hash 合并重复信息，保留可信度更高的主来源，把其他来源放进 `supplementary_sources`。这样既不会刷屏，也能展示多源印证。
+
+冲突的原则是：**系统可以发现冲突，但不假装裁决冲突。**
+
+比如新闻说上调、公告里没有对应表述，或者两个来源对关键数字说法不一致，我会标成 `requires_review`。这比让 LLM 给一个看似确定的结论更适合高净值客户场景。
+
+<img src="docs/images/briefalpha-judgement-drawer.png" alt="Judgement drawer with reasoning chain, evidence cards, and supplementary sources" width="720">
+
+验证方式：
+
+```bash
+curl -s http://localhost:8000/api/brief/today \
+  | jq '.judgements[] | {title, evidence_count, requires_review, review}'
+```
+
+当天 live 数据如果触发冲突，`requires_review=true`，前端研判行会出现“待复核”入口；没有触发时，这个字段保持 false，不用假装有冲突。
+
+### 6. AI 研判怎么控制
+
+我把 LLM 放在“表达层”，没有把它放在“事实裁判层”。
+
+事实选择、权重排序、组合关联、脱敏、冲突标记都在本地 pipeline 做；LLM 只基于筛选后的 evidence 写 base case、AI 摘要和 judgement。
+
+生成后还要过校验：
+
+- 引用的 evidence_id 必须存在。
+- 数字必须能在引用原文中找到。
+- 方向不能和原文相反。
+- 时间窗必须符合晨报场景。
+- 输出不能泄露真实 ticker、公司名、权重或客户信息。
+
+如果过不了，我宁愿进入 conservative fallback，也不输出一个漂亮但不可信的结论。
+
+### 7. 追问设计
+
+追问不是泛聊，它必须回到原文。
+
+用户可以按单条 judgement、单条 evidence 或全局 evidence_pool 追问。系统先召回原文 evidence，再重新脱敏，再让 LLM 回答，并且要求引用 evidence_id。这样追问回答不会脱离当天晨报的证据范围。
+
+<img src="docs/images/briefalpha-qa-drawer.png" alt="Scoped QA input inside the judgement drawer" width="720">
+
+### 8. 持仓安全
+
+我把持仓数据当成这个产品里最敏感的资产。
+
+第三方行情和新闻 API 只能看到 privacy-safe universe，看不到客户权重、金额、账户、排序。第三方 LLM 更严格，只能看到 `AliasedEvidence`，真实 ticker 和公司名会被替换成 `E_xxxx`。同时通过增加“陪跑标的”扩大可查询 universe，避免 API 流量直接暴露真实持仓边界。
+
+alias 每天生成一次，加密存在本地，16:00 HKT 自动删除。QA 追问也走同样的脱敏链路；只有被引用 evidence 里出现过的 alias 才能安全反映射。
+
+### 9. 技术取舍
+
+技术栈的选择服务于一个目标：**一周内做出可跑、可追溯、可演示的闭环。**
+
+我选 Python/FastAPI 是因为采集、PDF 解析、校验和 LLM 编排都更直接；选 SQLite/FTS5 是因为 MVP 单机就够，搜索和追问不需要一开始上复杂数据库；选 Redis 是为了缓存当天 brief 和轻量队列；没有上 Celery、Kafka、Kubernetes，因为它们会把时间花在工程重型化上，而不是题目真正考察的产品判断。
+
+### 10. 当前边界
+
+这个版本是可用 MVP，不是生产级投顾系统。当前最重要的边界是：新闻质量依赖 Finnhub/NewsAPI key，语义去重还没有完全升级到 embedding，相对复杂的宏观指标面板还没接入。
+
+但我认为核心答题点已经成立：它能用真实数据生成一份 5 分钟晨报，能解释为什么这些内容被选中，能基于原文追问，并且不会把客户持仓明文交给第三方模型。
+
+### 11. PRD 和详细设计位置
+
+- PRD：[`docs/PRD/BriefAlpha-PRD.md`](docs/PRD/BriefAlpha-PRD.md)
+- 详细技术设计：[`openspec/changes/build-briefalpha-mvp/design.md`](openspec/changes/build-briefalpha-mvp/design.md)
+- OpenSpec 任务与验收：[`openspec/changes/build-briefalpha-mvp/tasks.md`](openspec/changes/build-briefalpha-mvp/tasks.md)
+- 分模块规格：[`openspec/changes/build-briefalpha-mvp/specs/`](openspec/changes/build-briefalpha-mvp/specs/)
