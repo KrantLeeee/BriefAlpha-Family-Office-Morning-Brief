@@ -24,7 +24,7 @@ const make = (overrides: Partial<SystemMeta> = {}): SystemMeta => ({
   assert.equal(html, "", "live+ready should render nothing");
 }
 
-// Demo mode → orange banner with link
+// Demo mode → orange banner with tooltip hint (NO href, no anchor)
 {
   const html = renderToStaticMarkup(
     React.createElement(ModeBanner, {
@@ -32,11 +32,18 @@ const make = (overrides: Partial<SystemMeta> = {}): SystemMeta => ({
     })
   );
   assert.ok(html.includes("示例数据"), "demo banner should include 示例数据");
-  assert.ok(html.includes("如何切到真实管线"), "demo banner should include the README link label");
-  assert.ok(html.includes("/README#switching-modes"), "demo banner should link to switching-modes anchor");
+  assert.ok(html.includes("如何切到真实管线"), "demo banner should include the hint label");
+  assert.ok(
+    !html.includes("href"),
+    "demo banner must NOT contain a hyperlink (Next has no /README route)",
+  );
+  assert.ok(
+    html.includes("BRIEFALPHA_MODE=live"),
+    "demo banner tooltip should mention how to switch",
+  );
 }
 
-// Live + generating → blue banner, no link
+// Live + generating → blue banner, no hint
 {
   const html = renderToStaticMarkup(
     React.createElement(ModeBanner, {
@@ -44,7 +51,7 @@ const make = (overrides: Partial<SystemMeta> = {}): SystemMeta => ({
     })
   );
   assert.ok(html.includes("正在生成今日"), "generating banner should include the loading label");
-  assert.ok(!html.includes("/README#"), "generating banner should not show README link");
+  assert.ok(!html.includes("如何切到真实管线"), "generating banner should not show the demo hint");
 }
 
 // Live + stale → gray banner

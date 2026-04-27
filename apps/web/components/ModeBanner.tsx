@@ -12,7 +12,7 @@ export function ModeBanner({ system }: Props) {
   // Hidden when live mode is healthy — no banner.
   if (system.mode === "live" && system.status === "ready") return null;
 
-  const { bg, text, link } = renderConfig(system);
+  const { bg, text, hint } = renderConfig(system);
   return (
     <div
       role="status"
@@ -20,24 +20,28 @@ export function ModeBanner({ system }: Props) {
       style={{ backgroundColor: bg }}
     >
       <span>{text}</span>
-      {link && (
-        <a
-          href={link.href}
-          className="ml-3 underline hover:opacity-70"
+      {hint && (
+        <span
+          className="ml-3 cursor-help underline decoration-dotted underline-offset-2 hover:opacity-70"
+          title={hint}
+          tabIndex={0}
         >
-          {link.label}
-        </a>
+          如何切到真实管线 (?)
+        </span>
       )}
     </div>
   );
 }
 
-function renderConfig(system: SystemMeta): { bg: string; text: string; link?: { href: string; label: string } } {
+function renderConfig(system: SystemMeta): { bg: string; text: string; hint?: string } {
   if (system.mode === "demo") {
     return {
       bg: "#FFF1E6",
       text: "示例数据 · 未配置真实数据源（BRIEFALPHA_MODE=demo）",
-      link: { href: "/README#switching-modes", label: "如何切到真实管线" },
+      // Tooltip-only hint — no navigation. The Next app does not serve
+      // /README, and a 404 here would directly contradict the trust-loop
+      // promise. Detailed instructions live in README "切换模式".
+      hint: "切到真实管线：export BRIEFALPHA_MODE=live + ANTHROPIC_API_KEY (或 OPENAI_API_KEY) + packages/config/data_sources.yml 的 sec.user_agent。详见 README 切换模式 章节。",
     };
   }
   // mode === "live" beyond this point
