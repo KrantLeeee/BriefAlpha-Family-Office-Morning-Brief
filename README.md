@@ -416,6 +416,8 @@ curl -s http://localhost:8000/api/brief/today \
 
 用户可以按单条 judgement、单条 evidence 或全局 evidence_pool 追问。系统先召回原文 evidence，再重新脱敏，再让 LLM 回答，并且要求引用 evidence_id。这样追问回答不会脱离当天晨报的证据范围。
 
+<img src="docs/images/briefalpha-qa-drawer.png" alt="Scoped QA input inside the judgement drawer" width="720">
+
 
 
 ### 8. 持仓安全
@@ -426,22 +428,32 @@ curl -s http://localhost:8000/api/brief/today \
 
 alias 每天生成一次，加密存在本地，16:00 HKT 自动删除。QA 追问也走同样的脱敏链路；只有被引用 evidence 里出现过的 alias 才能安全反映射。
 
-### 9. 技术取舍
+### 9. 界面设计
+
+我把界面定位成“优雅老钱风”的投研工作台：克制、安静、可信，不做营销页，也不做花哨 dashboard。
+
+设计系统上，我用低饱和纸感背景、深墨色正文、少量橙色作为风险和行动提示。颜色不是为了装饰，而是服务信息层级：黑色承载事实，橙色承载需要注意或可行动的入口，红绿只用于涨跌和风险变化。
+
+页面排版按晨会阅读路径组织：左侧先看组合暴露，右侧给一句核心判断；下方只放 1-3 条 AI 研判，再往下才是 playbook 和证据轨迹。这样用户不需要先理解系统功能，而是按“先结论、再证据、再追问”的顺序自然阅读。
+
+CTA 也做了收敛：主操作只有“更新今日简报”和“上传研报”，证据入口统一用“证据 → / 查看原文 / 查看全部原文”。我没有放很多按钮，因为家办用户早上不是来探索功能的，是来快速进入状态的。
+
+可访问性上，界面按 WCAG 2.2 的思路做了基本约束：文字对比度足够，按钮和 drawer 有 aria-label，涨跌不只依赖颜色，也配合符号；抽屉支持 ESC 关闭，焦点可以回到触发位置。这个产品面对的是高压力阅读场景，可访问性本身也是专业感的一部分。
+
+### 10. 技术取舍和当前边界
 
 技术栈的选择服务于一个目标：**一周内做出可跑、可追溯、可演示的闭环。**
 
 我选 Python/FastAPI 是因为采集、PDF 解析、校验和 LLM 编排都更直接；选 SQLite/FTS5 是因为 MVP 单机就够，搜索和追问不需要一开始上复杂数据库；选 Redis 是为了缓存当天 brief 和轻量队列；没有上 Celery、Kafka、Kubernetes，因为它们会把时间花在工程重型化上，而不是题目真正考察的产品判断。
 
-### 10. 当前边界
-
 这个版本是可用 MVP，不是生产级投顾系统。当前最重要的边界是：新闻质量依赖 Finnhub/NewsAPI key，语义去重还没有完全升级到 embedding，相对复杂的宏观指标面板还没接入。
 
 但我认为核心答题点已经成立：它能用真实数据生成一份 5 分钟晨报，能解释为什么这些内容被选中，能基于原文追问，并且不会把客户持仓明文交给第三方模型。
 
-### 11. PRD 和详细设计位置
+### 11. PRD、详细设计和 UI 设计位置
 
-- PRD：`[docs/PRD/BriefAlpha-PRD.md](docs/PRD/BriefAlpha-PRD.md)`
-- 详细技术设计：`[openspec/changes/build-briefalpha-mvp/design.md](openspec/changes/build-briefalpha-mvp/design.md)`
-- OpenSpec 任务与验收：`[openspec/changes/build-briefalpha-mvp/tasks.md](openspec/changes/build-briefalpha-mvp/tasks.md)`
-- 分模块规格：`[openspec/changes/build-briefalpha-mvp/specs/](openspec/changes/build-briefalpha-mvp/specs/)`
-
+- PRD：[docs/PRD/BriefAlpha-PRD.md](docs/PRD/BriefAlpha-PRD.md)
+- 详细技术设计：[openspec/changes/build-briefalpha-mvp/design.md](openspec/changes/build-briefalpha-mvp/design.md)
+- OpenSpec 任务与验收：[openspec/changes/build-briefalpha-mvp/tasks.md](openspec/changes/build-briefalpha-mvp/tasks.md)
+- 分模块规格：[openspec/changes/build-briefalpha-mvp/specs/](openspec/changes/build-briefalpha-mvp/specs/)
+- UI 设计：[docs/Designs/BriefAlpha.pen](docs/Designs/BriefAlpha.pen)
