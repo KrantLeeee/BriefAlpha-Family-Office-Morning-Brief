@@ -25,7 +25,9 @@ test.describe("BriefAlpha — trust loop happy path (demo mode)", () => {
   test("ModeBanner shows the demo banner with switching-modes link", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText("示例数据")).toBeVisible();
-    await expect(page.getByRole("link", { name: /如何切到真实管线/ })).toBeVisible();
+    // The "如何切到真实管线" hint is a tooltip-bearing <span tabIndex={0}>,
+    // not an <a>/role=link, so match by text instead of role=link.
+    await expect(page.getByText(/如何切到真实管线/)).toBeVisible();
   });
 
   test("RefreshButton triggers refresh and shows the receipt", async ({ page }) => {
@@ -104,7 +106,12 @@ test.describe("BriefAlpha — trust loop happy path (demo mode)", () => {
     await drawer.getByRole("button", { name: /提问/ }).click();
     await qaPromise;
 
-    await expect(drawer.getByText("示例回答")).toBeVisible();
+    // Two elements contain "示例回答": the failureLabel heading
+    // ("示例回答（基于 demo brief）") and the DemoAnswerBadge span.
+    // Strict-mode requires disambiguation — assert the badge specifically
+    // and the heading separately.
+    await expect(drawer.getByText("示例回答（基于 demo brief）")).toBeVisible();
+    await expect(drawer.getByText("示例回答", { exact: true })).toBeVisible();
     await expect(drawer.getByText(/demo 模式/)).toBeVisible();
   });
 
