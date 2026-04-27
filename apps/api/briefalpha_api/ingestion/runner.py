@@ -30,8 +30,9 @@ async def run_ingestion(universe: PrivacySafeUniverse) -> dict[str, list[RawItem
         try:
             items = await adapter.fetch(universe)
             out[adapter.source_name] = items
+            health_source_name = _health_source_name(adapter, items)
             await record_source_health_async(
-                source_name=adapter.source_name,
+                source_name=health_source_name,
                 status="ok" if items else "degraded",
                 detail=None if items else "no items returned",
                 items_collected=len(items),
@@ -46,3 +47,21 @@ async def run_ingestion(universe: PrivacySafeUniverse) -> dict[str, list[RawItem
                 items_collected=0,
             )
     return out
+
+
+def _health_source_name(adapter: IngestionAdapter, items: list[RawItem]) -> str:
+    """Prefer the concrete provider when a fallback returned all items.
+
+    Reads `fetched_via` first because `source_name` was repurposed to mean
+    *publisher* (Yahoo / Reuters / etc.) — that varies per article and
+    would no longer collapse to a single value, defeating the original
+    "label health by the actual aggregator that returned items" intent.
+    Falls back to source_name for adapters that haven't migrated yet
+    (market / official tiers still use source_name as identity)."""
+    aggregators = {item.fetched_via for item in items if item.fetched_via}
+    if len(aggregators) == 1:
+        return next(iter(aggregators))
+    item_sources = {item.source_name for item in items if item.source_name}
+    if len(item_sources) == 1:
+        return next(iter(item_sources))
+    return adapter.source_name

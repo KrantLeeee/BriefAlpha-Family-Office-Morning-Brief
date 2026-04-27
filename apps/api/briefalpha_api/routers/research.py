@@ -10,11 +10,13 @@ from __future__ import annotations
 import logging
 import secrets
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 
 from briefalpha_api.cache import REANALYZE_QUEUE_KEY, RESEARCH_QUEUE_KEY, lpush
 from briefalpha_api.db.session import get_session
+from briefalpha_api.portfolio.display_names import display_name_for_ticker
 from briefalpha_api.research import (
     ActiveUploadLimitError,
     CrossUserAccessError,
@@ -22,6 +24,7 @@ from briefalpha_api.research import (
     delete_encrypted,
     delete_job_for_user,
     get_job_for_user,
+    list_jobs_for_user,
     mark_status,
     write_encrypted,
 )
@@ -34,6 +37,7 @@ MAX_PDF_BYTES = 25 * 1024 * 1024  # 25 MB
 
 # Default user_id when the header is absent — single-tenant MVP UX.
 DEFAULT_USER_ID = "demo"
+HKT = ZoneInfo("Asia/Hong_Kong")
 
 
 def _user_id_dep(x_user_id: str | None = Header(default=None)) -> str:
@@ -41,7 +45,10 @@ def _user_id_dep(x_user_id: str | None = Header(default=None)) -> str:
 
 
 def _err(code: str, message: str, *, status_code: int = 400) -> HTTPException:
-    return HTTPException(status_code=status_code, detail={"error": {"code": code, "message": message}})
+    return HTTPException(
+        status_code=status_code,
+        detail={"error": {"code": code, "message": message}},
+    )
 
 
 @router.post("/research/upload")
@@ -90,6 +97,26 @@ async def upload(
     return {"file_id": job.file_id, "status": "queued"}
 
 
+@router.get("/research")
+async def list_research(
+    user_id: str = Depends(_user_id_dep),
+    session=Depends(get_session),
+) -> dict[str, Any]:
+    jobs = await list_jobs_for_user(session, user_id=user_id)
+    return {
+        "files": [
+            {
+                "file_id": job.file_id,
+                "filename": job.filename,
+                "status": job.status,
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+                "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            }
+            for job in jobs
+        ]
+    }
+
+
 @router.get("/research/{file_id}")
 async def status(
     file_id: str,
@@ -123,7 +150,7 @@ async def parse_report(
         raise _err("research_not_found", file_id, status_code=404)
     except CrossUserAccessError:
         raise _err("forbidden", f"file_id '{file_id}' belongs to another user.", status_code=403)
-    return job.parse_report or {"status": job.status}
+    return _parse_report_payload(job)
 
 
 @router.post("/research/{file_id}/reanalyze")
@@ -162,3 +189,31 @@ async def delete(
         raise _err("forbidden", f"file_id '{file_id}' belongs to another user.", status_code=403)
     delete_encrypted(user_id, file_id)
     return {"file_id": file_id, "status": "deleted"}
+
+
+def _parse_report_payload(job) -> dict[str, Any]:
+    """Return a stable frontend shape even while the async parser is pending."""
+    payload = dict(job.parse_report or {})
+    payload.setdefault("filename", job.filename)
+    payload.setdefault("size_label", f"{round(job.size_bytes / (1024 * 1024), 1)} MB")
+    payload.setdefault("page_count", 0)
+    uploaded_at = (
+        job.created_at.astimezone(HKT).strftime("%H:%M")
+        if job.created_at
+        else "—"
+    )
+    payload.setdefault("uploaded_at_hkt", uploaded_at)
+    payload.setdefault("parse_seconds", None)
+    payload.setdefault("stages", [])
+    payload.setdefault("tickers_in_universe", [])
+    payload.setdefault("tickers_external", [])
+    payload.setdefault("low_confidence_chunks", [])
+    tickers = list(payload.get("tickers_in_universe") or []) + list(
+        payload.get("tickers_external") or []
+    )
+    payload["ticker_labels"] = {
+        ticker: display_name_for_ticker(ticker)
+        for ticker in tickers
+    }
+    payload["status"] = job.status
+    return payload

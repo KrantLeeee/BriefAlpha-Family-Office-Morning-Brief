@@ -28,6 +28,18 @@ async function run() {
     "getSourceHealth must reject on 500 (no silent fallback)"
   );
 
+  let capturedInit: RequestInit | undefined;
+  (globalThis as Record<string, unknown>).fetch = async (_url: string, init?: RequestInit) => {
+    capturedInit = init;
+    return new Response("{}", { status: 200 });
+  };
+  await getSourceHealth();
+  assert.equal(
+    new Headers(capturedInit?.headers).has("Content-Type"),
+    false,
+    "GET requests should not force Content-Type and trigger CORS preflight"
+  );
+
   // Stub fetch with a network-level error — getBriefToday should still
   // reject (TypeError propagates), not absorb into a fixture.
   (globalThis as Record<string, unknown>).fetch = async () => {

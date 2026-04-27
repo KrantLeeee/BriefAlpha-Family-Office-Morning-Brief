@@ -25,8 +25,8 @@ require.cache[navigationPath] = {
 import("../../components/RefreshButton").then(({ RefreshButton }) => {
   // Initial render shows the default label.
   const html = renderToStaticMarkup(React.createElement(RefreshButton, null));
-  assert.ok(html.includes("刷新数据"), "default label should be 刷新数据");
-  assert.ok(html.includes("aria-label=\"刷新数据\""), "should have aria-label");
+  assert.ok(html.includes("更新今日简报"), "default label should be 更新今日简报");
+  assert.ok(html.includes("aria-label=\"更新今日简报\""), "should have aria-label");
 
   console.log("refresh-button: render smoke OK");
 });

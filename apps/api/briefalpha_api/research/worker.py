@@ -20,11 +20,14 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from briefalpha_api.anonymization.sensitive_entity_dictionary import (
+    build_sensitive_entity_dictionary,
+)
 from briefalpha_api.llm.schema import LlmRequest
 from briefalpha_api.llm.wrapper import call_vision_llm
 
@@ -52,6 +55,7 @@ class ParseResult:
     failures: list[dict[str, Any]]
     tickers_in_universe: list[str]
     tickers_external: list[str]
+    page_count: int = 0
 
 
 def _chunkify(text: str, *, page: int) -> list[Chunk]:
@@ -93,12 +97,39 @@ def _emit(content: str, *, page: int, heading: str | None) -> Chunk:
     )
 
 
-def _detect_tickers(content: str, *, ticker_dict: set[str]) -> list[str]:
+def _build_mention_map(universe_tickers: set[str]) -> dict[str, str]:
+    dictionary = build_sensitive_entity_dictionary(
+        universe_tickers=sorted(universe_tickers)
+    )
+    out: dict[str, str] = {}
+    for ticker in universe_tickers:
+        out[ticker] = ticker
+        for name in dictionary.names_for(ticker):
+            out[name] = ticker
+    return out
+
+
+def _detect_tickers(content: str, *, mention_map: dict[str, str]) -> list[str]:
     found: list[str] = []
-    for tk in ticker_dict:
-        if re.search(rf"\b{re.escape(tk)}\b", content):
-            found.append(tk)
-    return found
+    for mention, ticker in mention_map.items():
+        if _mentions_entity(content, mention):
+            found.append(ticker)
+    return sorted(set(found))
+
+
+def _mentions_entity(content: str, mention: str) -> bool:
+    if not mention:
+        return False
+    if re.fullmatch(r"[A-Za-z0-9.:-]+", mention):
+        return (
+            re.search(
+                rf"(?<![A-Za-z0-9]){re.escape(mention)}(?![A-Za-z0-9])",
+                content,
+                flags=re.IGNORECASE,
+            )
+            is not None
+        )
+    return mention.casefold() in content.casefold()
 
 
 def _page_to_png_data_url(page: Any) -> str:
@@ -110,7 +141,7 @@ def _page_to_png_data_url(page: Any) -> str:
 
 
 def _caption_chunk(*, page: int, content: str) -> Chunk:
-    chunk_id = hashlib.sha1(f"vision:{page}:{content}".encode("utf-8")).hexdigest()[:12]
+    chunk_id = hashlib.sha1(f"vision:{page}:{content}".encode()).hexdigest()[:12]
     return Chunk(
         chunk_id=chunk_id,
         page=page,
@@ -144,6 +175,7 @@ async def process_research_pdf(
             failures=failures,
             tickers_in_universe=[],
             tickers_external=[],
+            page_count=0,
         )
 
     pages_text: list[tuple[int, str]] = []
@@ -152,12 +184,18 @@ async def process_research_pdf(
             for idx, page in enumerate(pdf.pages, start=1):
                 txt = page.extract_text() or ""
                 pages_text.append((idx, txt))
-        stages_status.append({"name": "extraction", "status": "ok", "detail": f"{len(pages_text)} pages"})
+        stages_status.append(
+            {
+                "name": "extraction",
+                "status": "ok",
+                "detail": f"{len(pages_text)} pages",
+            }
+        )
     except Exception as exc:  # noqa: BLE001
         failures.append({"stage": "extraction", "reason": str(exc)})
         return ParseResult(
             file_id=file_id, chunks=[], stages=stages_status, failures=failures,
-            tickers_in_universe=[], tickers_external=[],
+            tickers_in_universe=[], tickers_external=[], page_count=0,
         )
 
     # 2. OCR fallback for low-text pages (skipped if pytesseract unavailable)
@@ -166,7 +204,11 @@ async def process_research_pdf(
         try:
             import pytesseract  # type: ignore[import-untyped]  # noqa: F401
             stages_status.append(
-                {"name": "ocr_fallback", "status": "ok", "detail": f"{len(sparse_pages)} pages reviewed"}
+                {
+                    "name": "ocr_fallback",
+                    "status": "ok",
+                    "detail": f"{len(sparse_pages)} pages reviewed",
+                }
             )
         except ImportError:
             stages_status.append({"name": "ocr_fallback", "status": "partial", "detail": "skipped"})
@@ -227,7 +269,9 @@ async def process_research_pdf(
             )
         except Exception as exc:  # noqa: BLE001
             failures.append({"stage": "vision_caption", "reason": str(exc)})
-            stages_status.append({"name": "vision_caption", "status": "partial", "detail": "failed"})
+            stages_status.append(
+                {"name": "vision_caption", "status": "partial", "detail": "failed"}
+            )
     else:
         stages_status.append(
             {
@@ -244,14 +288,22 @@ async def process_research_pdf(
     stages_status.append({"name": "chunking", "status": "ok", "detail": f"{len(chunks)} chunks"})
 
     # 5. ticker detection
+    mention_map = _build_mention_map(universe_tickers)
     in_uni: set[str] = set()
     ext: set[str] = set()
     for chunk in chunks:
-        chunk.detected_tickers = _detect_tickers(chunk.content, ticker_dict=universe_tickers)
+        chunk.detected_tickers = _detect_tickers(
+            chunk.content,
+            mention_map=mention_map,
+        )
         for tk in chunk.detected_tickers:
             (in_uni if tk in universe_tickers else ext).add(tk)
     stages_status.append(
-        {"name": "ticker_detection", "status": "ok", "detail": f"in-uni {len(in_uni)} / ext {len(ext)}"}
+        {
+            "name": "ticker_detection",
+            "status": "ok",
+            "detail": f"in-uni {len(in_uni)} / ext {len(ext)}",
+        }
     )
 
     # 6. fts_dedupe — exact content_hash dedupe (embedding-based dedupe needs
@@ -278,8 +330,9 @@ async def process_research_pdf(
         failures=failures,
         tickers_in_universe=sorted(in_uni),
         tickers_external=sorted(ext),
+        page_count=len(pages_text),
     )
 
 
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

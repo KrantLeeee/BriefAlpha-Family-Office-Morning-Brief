@@ -14,7 +14,13 @@ from zoneinfo import ZoneInfo
 
 from briefalpha_api.cache import REANALYZE_QUEUE_KEY, RESEARCH_QUEUE_KEY, rpop
 from briefalpha_api.db.session import SessionLocal
-from briefalpha_api.research.persistence import ChunkInsert, mark_status, persist_chunks_and_evidence
+from briefalpha_api.portfolio.repo import load_positions, load_watchlist
+from briefalpha_api.portfolio.universe import build_universe
+from briefalpha_api.research.persistence import (
+    ChunkInsert,
+    mark_status,
+    persist_chunks_and_evidence,
+)
 from briefalpha_api.research.storage import decrypted_temp
 from briefalpha_api.research.worker import process_research_pdf
 
@@ -68,7 +74,7 @@ async def _process_one(payload: Any, *, mode: str) -> None:
     async with SessionLocal() as s:
         await mark_status(s, file_id=file_id, status="parsing")
 
-    universe_tickers: set[str] = set()  # Detection runs on detected_tickers in chunk content; the dict is built lazily.
+    universe_tickers = await _load_privacy_safe_tickers(user_id=user_id)
 
     parse_result = None
     try:
@@ -117,12 +123,18 @@ async def _process_one(payload: Any, *, mode: str) -> None:
             s, job=job, brief_id=today_hkt, chunks=chunks
         )
 
+        completed_at = datetime.now(tz=HKT)
+        parse_seconds = (
+            round((completed_at - job.created_at.astimezone(HKT)).total_seconds(), 1)
+            if job.created_at
+            else None
+        )
         report = {
             "filename": job.filename,
             "size_label": f"{round(job.size_bytes / (1024 * 1024), 1)} MB",
-            "page_count": len(parse_result.stages and parse_result.stages or []),
-            "uploaded_at_hkt": datetime.now(tz=HKT).strftime("%H:%M"),
-            "parse_seconds": None,
+            "page_count": parse_result.page_count,
+            "uploaded_at_hkt": completed_at.strftime("%H:%M"),
+            "parse_seconds": parse_seconds,
             "stages": parse_result.stages,
             "tickers_in_universe": parse_result.tickers_in_universe,
             "tickers_external": parse_result.tickers_external,
@@ -137,3 +149,15 @@ async def _process_one(payload: Any, *, mode: str) -> None:
             completed=True,
         )
     log.info("research worker (%s) finished %s — %d chunks", mode, file_id, len(chunks))
+
+
+async def _load_privacy_safe_tickers(*, user_id: str) -> set[str]:
+    async with SessionLocal() as s:
+        positions = await load_positions(s, user_id=user_id)
+        watchlist = await load_watchlist(s, user_id=user_id)
+    universe, _summary = build_universe(
+        brief_id=f"research-{datetime.now(tz=HKT).strftime('%Y-%m-%d')}",
+        positions=positions,
+        watchlist=watchlist,
+    )
+    return universe.ticker_set()

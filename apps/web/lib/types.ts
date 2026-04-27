@@ -30,6 +30,17 @@ export interface ReviewMeta {
   note: string;
   status: "open" | "reviewed";
   reviewed_at: string | null;
+  /**
+   * How this review was created. `fallback` means the API ran the
+   * conservative-fallback path (Stage B LLM was rejected and the
+   * judgement is a system placeholder, not an AI-generated insight);
+   * the modal copy adapts so users don't think they're confirming an
+   * AI judgement when nothing was actually produced.
+   *
+   * Absent on legacy fixture data and on user-marked overrides where
+   * the original judgement wasn't a fallback — treat as undefined.
+   */
+  kind?: "fallback" | "ai_self_review";
 }
 
 export type Trend = "up" | "down" | "flat";
@@ -130,6 +141,7 @@ export interface DeepReadEvidenceTrailRow {
 
 export interface SourceHealthRow {
   name: string;
+  source_name?: string;
   status: StatusLevel;
   detail: string;
   is_demo: boolean;
@@ -193,18 +205,37 @@ export interface QaResponse {
 
 export interface ParseReportStage {
   name: string;
-  status: "ok" | "consent_required" | "partial" | "failed";
+  status: "ok" | "consent_required" | "partial" | "failed" | "skipped";
   detail: string;
 }
 
 export interface ParseReport {
+  status?: "queued" | "parsing" | "reanalyze_queued" | "ok" | "failed";
   filename: string;
   size_label: string;
   page_count: number;
   uploaded_at_hkt: string;
-  parse_seconds: number;
+  parse_seconds: number | null;
   stages: ParseReportStage[];
   tickers_in_universe: string[];
   tickers_external: string[];
+  ticker_labels?: Record<string, string>;
   low_confidence_chunks: { chunk_id: string; page: number; reason: string; preview: string }[];
+}
+
+export interface ResearchFileSummary {
+  file_id: string;
+  filename: string;
+  status: "queued" | "parsing" | "reanalyze_queued" | "ok" | "failed" | string;
+  created_at: string | null;
+  completed_at: string | null;
+}
+
+export interface BriefRefreshStatus {
+  brief_id: string;
+  status: "idle" | "generating" | "ready" | "error" | string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  error?: string | null;
+  cached: boolean;
 }

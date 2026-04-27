@@ -80,6 +80,46 @@ def test_numbers_allows_market_price_rounding_from_unitless_excerpt() -> None:
     assert ok, reason
 
 
+def test_numbers_cross_magnitude_chinese_vs_english() -> None:
+    """Stage B audit log (2026-04-27) repeatedly rejected legitimate
+    `5,706 million` ↔ `57.06 亿` unit conversions because the validator
+    couldn't normalize magnitudes. After Fix 4, the two forms must compare
+    equal so the LLM is allowed to render English source numbers in Chinese
+    accounting units."""
+    ok, reason = validate_numbers(
+        answer_text="数据中心营收达到 57.06 亿美元",
+        excerpt_text="data center revenue reached $5,706 million this quarter.",
+    )
+    assert ok, reason
+
+    ok, reason = validate_numbers(
+        answer_text="本季度营收 5.706 billion",
+        excerpt_text="本季度营收 57.06 亿。",
+    )
+    assert ok, reason
+
+
+def test_numbers_magnitude_still_catches_10x_errors() -> None:
+    """The whole point of the magnitude normalization is to allow correct
+    conversion — not to mask off-by-magnitude hallucinations."""
+    ok, reason = validate_numbers(
+        answer_text="数据中心营收 570.06 亿美元",
+        excerpt_text="data center revenue reached $5,706 million this quarter.",
+    )
+    assert not ok
+    assert "570" in (reason or "")
+
+
+def test_numbers_thousand_separators_handled() -> None:
+    """`5,706` and `5706` describe the same number — comma stripping must
+    happen before the magnitude scaling."""
+    ok, _ = validate_numbers(
+        answer_text="营收 5,706 million 美元",
+        excerpt_text="revenue 5706 million USD reported.",
+    )
+    assert ok
+
+
 def test_polarity_mismatch_flagged() -> None:
     ok, _ = validate_polarity(
         answer_text="腾讯 beat 预期", excerpt_text="腾讯 miss 预期"

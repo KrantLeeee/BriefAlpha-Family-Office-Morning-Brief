@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
-import { getParseReport, uploadResearch } from "@/lib/api";
-import { demoParseReport } from "@/lib/fixtures";
+import {
+  deleteResearch,
+  getBriefRefreshStatus,
+  getParseReport,
+  listResearch,
+  reanalyzeResearch,
+  updateTodayBrief,
+  uploadResearch,
+} from "@/lib/api";
 import type { ParseReport } from "@/lib/types";
 import { useAppStore } from "@/store/use-app-store";
 
@@ -14,13 +22,17 @@ import { useAppStore } from "@/store/use-app-store";
  *   1. Header (UPLOAD RESEARCH + close)
  *   2. Active file's parse_report panel (filename, status, consent, parsing
  *      summary, tickers in / out portfolio, low-confidence chunks)
- *   3. Actions row (重新解析 / 删除文件 / + 添加文件)
+ *   3. Actions row (重新解析文件 / 更新今日简报 / 删除文件 / + 添加文件)
  *   4. **Uploaded files list** — sits below the actions row so the file
  *      cards appear right next to the "+ 添加文件" CTA the user just
  *      clicked. Click a file to make it the active report shown above.
  */
 
 const MAX_ACTIVE = 5;
+const PARSE_POLL_MS = 5000;
+const PARSE_POLL_TIMEOUT_MS = 10 * 60_000;
+const BRIEF_POLL_MS = 3000;
+const BRIEF_POLL_TIMEOUT_MS = 10 * 60_000;
 
 const STAGE_LABEL: Record<string, string> = {
   extraction: "文本抽取",
@@ -37,6 +49,7 @@ const STATUS_LABEL: Record<string, string> = {
   partial: "部分",
   failed: "失败",
   consent_required: "未授权",
+  skipped: "跳过",
 };
 
 const STATUS_DOT: Record<string, string> = {
@@ -44,6 +57,7 @@ const STATUS_DOT: Record<string, string> = {
   partial: "bg-warning",
   failed: "bg-danger",
   consent_required: "bg-orange-600",
+  skipped: "bg-ink-300",
 };
 
 interface ActiveFile {
@@ -51,41 +65,49 @@ interface ActiveFile {
   filename: string;
   report: ParseReport | null;
   loading: boolean;
+  error?: string;
 }
 
 export function UploadDrawerHost() {
   const ref = useRef<HTMLDivElement | null>(null);
+  const pollTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const briefPollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drawer = useAppStore((s) => s.uploadDrawer);
   const close = useAppStore((s) => s.closeUpload);
+  const router = useRouter();
 
   const [files, setFiles] = useState<ActiveFile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [consent, setConsent] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [updatingBrief, setUpdatingBrief] = useState(false);
+  const [briefProgress, setBriefProgress] = useState(0);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
 
   useEffect(() => {
     if (!drawer.open || bootstrapped) return;
-    if (drawer.fileId) {
-      setFiles([{ file_id: drawer.fileId, filename: "正在加载…", report: null, loading: true }]);
-      setActiveId(drawer.fileId);
-      void hydrate(drawer.fileId);
-    } else {
-      setFiles([
-        { file_id: "demo", filename: demoParseReport.filename, report: demoParseReport, loading: false },
-      ]);
-      setActiveId("demo");
-    }
+    void bootstrapFromServer(drawer.fileId);
     setBootstrapped(true);
   }, [drawer.open, drawer.fileId, bootstrapped]);
 
   useEffect(() => {
     if (drawer.open) return;
+    clearAllPollTimers(pollTimers.current);
+    clearBriefPollTimer();
     setBootstrapped(false);
     setFiles([]);
     setActiveId(null);
     setUploading(false);
+    setUpdatingBrief(false);
+    setBriefProgress(0);
+    setActionMessage(null);
   }, [drawer.open]);
+
+  useEffect(() => () => {
+    clearAllPollTimers(pollTimers.current);
+    clearBriefPollTimer();
+  }, []);
 
   useEffect(() => {
     if (!drawer.open) return;
@@ -106,26 +128,105 @@ export function UploadDrawerHost() {
 
   if (!drawer.open) return null;
 
-  async function hydrate(file_id: string): Promise<void> {
+  async function bootstrapFromServer(preferredFileId: string | null): Promise<void> {
+    try {
+      const res = await listResearch();
+      const next: ActiveFile[] = res.files.map((f) => ({
+        file_id: f.file_id,
+        filename: f.filename,
+        report: null,
+        loading: f.status !== "ok" && f.status !== "failed",
+        error: f.status === "failed" ? "研报解析失败，请删除后重新上传。" : undefined,
+      }));
+      setFiles(next);
+      const firstId = preferredFileId ?? next[0]?.file_id ?? null;
+      setActiveId(firstId);
+      for (const f of next) {
+        void hydrate(f.file_id);
+      }
+    } catch {
+      setFiles([]);
+      setActiveId(null);
+      setActionMessage("上传记录加载失败，请稍后重试。");
+    }
+  }
+
+  async function hydrate(file_id: string, startedAt = Date.now()): Promise<void> {
     try {
       const r = await getParseReport(file_id);
+      if (isFailedParseReport(r)) {
+        clearPollTimer(pollTimers.current, file_id);
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.file_id === file_id
+              ? {
+                  ...f,
+                  filename: r.filename || f.filename,
+                  report: null,
+                  loading: false,
+                  error: "研报解析失败，请删除后重新上传。",
+                }
+              : f
+          )
+        );
+        return;
+      }
+      if (!isCompleteParseReport(r)) {
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.file_id === file_id
+              ? {
+                  ...f,
+                  filename: r.filename || f.filename,
+                  report: null,
+                  loading: true,
+                  error: undefined,
+                }
+              : f
+          )
+        );
+        scheduleHydratePoll(file_id, startedAt);
+        return;
+      }
+      clearPollTimer(pollTimers.current, file_id);
       setFiles((prev) =>
-        prev.map((f) => (f.file_id === file_id ? { ...f, filename: r.filename, report: r, loading: false } : f))
+        prev.map((f) =>
+          f.file_id === file_id
+            ? { ...f, filename: r.filename, report: r, loading: false }
+            : f
+        )
       );
     } catch {
       setFiles((prev) =>
         prev.map((f) =>
           f.file_id === file_id
-            ? { ...f, report: demoParseReport, filename: demoParseReport.filename, loading: false }
+            ? { ...f, report: null, loading: false, error: "解析报告加载失败，请稍后重试或重新上传。" }
             : f
         )
       );
     }
   }
 
+  function scheduleHydratePoll(file_id: string, startedAt: number): void {
+    clearPollTimer(pollTimers.current, file_id);
+    if (Date.now() - startedAt > PARSE_POLL_TIMEOUT_MS) {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.file_id === file_id
+            ? { ...f, loading: false, error: "解析等待超时，请稍后重新打开或重新上传。" }
+            : f
+        )
+      );
+      return;
+    }
+    pollTimers.current[file_id] = setTimeout(() => {
+      void hydrate(file_id, startedAt);
+    }, PARSE_POLL_MS);
+  }
+
   async function handleAddFiles(selected: FileList | null) {
     if (!selected || selected.length === 0) return;
-    const realCount = files.filter((f) => !isDemo(f.file_id)).length;
+    const realCount = files.filter(countsUploadSlot).length;
     const remaining = MAX_ACTIVE - realCount;
     if (remaining <= 0) return;
     const arr = Array.from(selected).slice(0, remaining);
@@ -144,18 +245,19 @@ export function UploadDrawerHost() {
             report: null,
             loading: true,
           };
-          setFiles((prev) => [...prev.filter((x) => !isDemo(x.file_id)), placeholder]);
+          setFiles((prev) => [...prev, placeholder]);
           setActiveId(res.file_id);
           await hydrate(res.file_id);
         } catch {
-          const demoCopy: ActiveFile = {
-            file_id: `demo-${Date.now()}-${f.name}`,
+          const failed: ActiveFile = {
+            file_id: `failed-${Date.now()}-${f.name}`,
             filename: f.name,
-            report: { ...demoParseReport, filename: f.name },
             loading: false,
+            report: null,
+            error: "上传失败，请确认文件为 PDF 且未超过大小限制。",
           };
-          setFiles((prev) => [...prev.filter((x) => !isDemo(x.file_id)), demoCopy]);
-          setActiveId(demoCopy.file_id);
+          setFiles((prev) => [...prev, failed]);
+          setActiveId(failed.file_id);
         }
       }
     } finally {
@@ -163,11 +265,110 @@ export function UploadDrawerHost() {
     }
   }
 
+  async function handleReanalyze(file_id: string): Promise<void> {
+    clearPollTimer(pollTimers.current, file_id);
+    setActionMessage(null);
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.file_id === file_id
+          ? { ...f, report: null, loading: true, error: undefined }
+          : f
+      )
+    );
+    try {
+      await reanalyzeResearch(file_id);
+      void hydrate(file_id);
+    } catch {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.file_id === file_id
+            ? { ...f, loading: false, error: "重新解析提交失败，请稍后重试。" }
+            : f
+        )
+      );
+    }
+  }
+
+  async function handleUpdateBrief(): Promise<void> {
+    setUpdatingBrief(true);
+    setBriefProgress(8);
+    setActionMessage(null);
+    try {
+      const res = await updateTodayBrief();
+      setActionMessage(
+        res.status === "queued"
+          ? "今日简报正在生成，完成后会纳入已解析研报。"
+          : "今日简报已更新。"
+      );
+      if (res.status === "queued") {
+        pollBriefRefresh(Date.now());
+      } else {
+        setUpdatingBrief(false);
+        setBriefProgress(100);
+      }
+    } catch {
+      setActionMessage("今日简报更新失败，请稍后重试。");
+      setUpdatingBrief(false);
+      setBriefProgress(0);
+    }
+  }
+
+  function pollBriefRefresh(startedAt: number): void {
+    clearBriefPollTimer();
+    briefPollTimer.current = setTimeout(async () => {
+      const elapsed = Date.now() - startedAt;
+      setBriefProgress(Math.min(92, 12 + Math.floor((elapsed / BRIEF_POLL_TIMEOUT_MS) * 80)));
+      try {
+        const status = await getBriefRefreshStatus();
+        if (status.status === "ready") {
+          setUpdatingBrief(false);
+          setBriefProgress(100);
+          setActionMessage("今日简报已生成，已纳入可用研报。");
+          router.refresh();
+          return;
+        }
+        if (status.status === "error") {
+          setUpdatingBrief(false);
+          setActionMessage("今日简报生成失败，请稍后重试。");
+          return;
+        }
+      } catch {
+        setActionMessage("正在生成今日简报，状态暂时读取失败。");
+      }
+      if (elapsed > BRIEF_POLL_TIMEOUT_MS) {
+        setUpdatingBrief(false);
+        setActionMessage("今日简报仍在后台生成，可稍后刷新查看。");
+        return;
+      }
+      pollBriefRefresh(startedAt);
+    }, BRIEF_POLL_MS);
+  }
+
+  function clearBriefPollTimer(): void {
+    if (!briefPollTimer.current) return;
+    clearTimeout(briefPollTimer.current);
+    briefPollTimer.current = null;
+  }
+
+  async function handleDelete(file_id: string): Promise<void> {
+    clearPollTimer(pollTimers.current, file_id);
+    setActionMessage(null);
+    try {
+      await deleteResearch(file_id);
+    } catch {
+      setActionMessage("删除失败，请稍后重试。");
+      return;
+    }
+    setFiles((prev) => {
+      const next = prev.filter((f) => f.file_id !== file_id);
+      setActiveId(next[0]?.file_id ?? null);
+      return next;
+    });
+  }
+
   const active = files.find((f) => f.file_id === activeId) ?? files[0];
-  const realCount = files.filter((f) => !isDemo(f.file_id)).length;
+  const realCount = files.filter(countsUploadSlot).length;
   const remainingSlots = Math.max(0, MAX_ACTIVE - realCount);
-  // Only render the file list once the user has more than one file (or has
-  // uploaded a real file) — a single demo placeholder doesn't need a list.
   const showFileList = files.length > 1;
 
   return (
@@ -195,6 +396,43 @@ export function UploadDrawerHost() {
             </svg>
           </button>
         </header>
+
+        {showFileList && (
+          <FileList
+            files={files}
+            activeId={activeId}
+            onSelect={setActiveId}
+          />
+        )}
+
+        {!active && (
+          <EmptyUploadState
+            remainingSlots={remainingSlots}
+            uploading={uploading}
+            onAdd={handleAddFiles}
+          />
+        )}
+
+        {active?.loading && (
+          <StatusPanel
+            filename={active.filename}
+            message="研报已提交，正在等待解析报告。"
+          />
+        )}
+
+        {active?.error && (
+          <StatusPanel
+            filename={active.filename}
+            message={active.error}
+            tone="error"
+          >
+            <AddMoreFilesButton
+              remainingSlots={remainingSlots}
+              uploading={uploading}
+              onAdd={handleAddFiles}
+            />
+          </StatusPanel>
+        )}
 
         {active?.report && (
           <>
@@ -246,7 +484,7 @@ export function UploadDrawerHost() {
                     key={t}
                     className="rounded-chip bg-warningWash px-2 py-[2px] font-mono text-[11px] text-orange-600"
                   >
-                    {t} · 组合内
+                    {tickerLabel(active.report!, t)} · 组合内
                   </span>
                 ))}
                 {active.report.tickers_external.map((t) => (
@@ -254,7 +492,7 @@ export function UploadDrawerHost() {
                     key={t}
                     className="rounded-chip bg-surface px-2 py-[2px] font-mono text-[11px] text-ink-500"
                   >
-                    {t} · 组合外
+                    {tickerLabel(active.report!, t)} · 组合外
                   </span>
                 ))}
               </div>
@@ -291,12 +529,29 @@ export function UploadDrawerHost() {
               <div className="flex flex-wrap gap-[10px]">
                 <button
                   type="button"
+                  onClick={() => void handleReanalyze(active.file_id)}
                   className="rounded-chip border border-orange-600 bg-orange-600 px-3 py-[6px] font-mono text-[11px] text-canvas hover:opacity-90"
                 >
-                  重新解析（≤ 30s）
+                  重新解析文件
                 </button>
                 <button
                   type="button"
+                  onClick={() => void handleUpdateBrief()}
+                  disabled={updatingBrief}
+                  className="relative overflow-hidden rounded-chip border border-ink-900 bg-ink-900 px-3 py-[6px] font-mono text-[11px] text-canvas hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-80"
+                >
+                  {updatingBrief && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-0 left-0 bg-orange-600 transition-[width]"
+                      style={{ width: `${briefProgress}%` }}
+                    />
+                  )}
+                  <span className="relative">{updatingBrief ? "生成中..." : "更新今日简报"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(active.file_id)}
                   className="rounded-chip border border-line bg-surface px-3 py-[6px] font-mono text-[11px] text-ink-700 hover:bg-canvas"
                 >
                   删除文件
@@ -308,16 +563,14 @@ export function UploadDrawerHost() {
                 />
               </div>
 
-              {showFileList && (
-                <FileList
-                  files={files}
-                  activeId={activeId}
-                  onSelect={setActiveId}
-                />
+              {actionMessage && (
+                <p className="font-mono text-[11px] text-ink-500">
+                  {actionMessage}
+                </p>
               )}
 
               <p className="font-sans text-[11px] leading-[1.5] text-ink-400">
-                重新解析仅运行 pipeline 第 4 阶段及之后，不会重新拉取行情 / 新闻 / 官方公告。目标 ≤ 30 秒。
+                重新解析文件只重跑 PDF 抽取、识别和入池；更新今日简报会用已入池研报重跑今日判断。
               </p>
               <p className="font-mono text-[10px] text-ink-400">
                 同时可保留 {MAX_ACTIVE} 份；当前已激活 {realCount} 份。
@@ -364,6 +617,65 @@ function FileList({
         );
       })}
     </div>
+  );
+}
+
+function EmptyUploadState({
+  remainingSlots,
+  uploading,
+  onAdd,
+}: {
+  remainingSlots: number;
+  uploading: boolean;
+  onAdd: (files: FileList | null) => void;
+}) {
+  return (
+    <section className="flex min-h-[360px] flex-col justify-center gap-5">
+      <div className="flex flex-col gap-2">
+        <h2 className="font-serif text-[24px] font-medium leading-[1.15] text-ink-900">
+          暂无已上传研报
+        </h2>
+        <p className="max-w-[420px] font-sans text-[13px] leading-[1.6] text-ink-500">
+          添加 PDF 后，这里会显示解析状态、识别到的标的和低置信度片段。
+        </p>
+      </div>
+      <AddMoreFilesButton
+        remainingSlots={remainingSlots}
+        uploading={uploading}
+        onAdd={onAdd}
+      />
+    </section>
+  );
+}
+
+function StatusPanel({
+  filename,
+  message,
+  tone = "neutral",
+  children,
+}: {
+  filename: string;
+  message: string;
+  tone?: "neutral" | "error";
+  children?: ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="font-serif text-[24px] font-medium leading-[1.15] text-ink-900">
+        {filename}
+      </h2>
+      <div
+        className={[
+          "rounded-card border p-[14px] font-sans text-[13px] leading-[1.6]",
+          tone === "error"
+            ? "border-orange-200 bg-consentWash text-orange-700"
+            : "border-line bg-surface text-ink-500",
+        ].join(" ")}
+      >
+        {message}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -438,11 +750,47 @@ function Divider() {
   return <div aria-hidden className="h-px w-full bg-line" />;
 }
 
-function isDemo(id: string): boolean {
-  return id === "demo" || id.startsWith("demo-");
+function countsUploadSlot(file: ActiveFile): boolean {
+  return !file.file_id.startsWith("failed-");
+}
+
+export function isCompleteParseReport(report: ParseReport): boolean {
+  if (report.status && report.status !== "ok") return false;
+  return (
+    Array.isArray(report.stages) &&
+    Array.isArray(report.tickers_in_universe) &&
+    Array.isArray(report.tickers_external) &&
+    Array.isArray(report.low_confidence_chunks)
+  );
+}
+
+export function isFailedParseReport(report: ParseReport): boolean {
+  return report.status === "failed";
+}
+
+function clearPollTimer(
+  timers: Record<string, ReturnType<typeof setTimeout>>,
+  fileId: string
+): void {
+  const timer = timers[fileId];
+  if (!timer) return;
+  clearTimeout(timer);
+  delete timers[fileId];
+}
+
+function clearAllPollTimers(
+  timers: Record<string, ReturnType<typeof setTimeout>>
+): void {
+  for (const fileId of Object.keys(timers)) {
+    clearPollTimer(timers, fileId);
+  }
 }
 
 function truncate(s: string, max: number) {
   if (s.length <= max) return s;
   return s.slice(0, max - 1) + "…";
+}
+
+function tickerLabel(report: ParseReport, ticker: string): string {
+  return report.ticker_labels?.[ticker] ?? ticker;
 }

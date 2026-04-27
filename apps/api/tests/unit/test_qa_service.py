@@ -16,6 +16,7 @@ from briefalpha_api.anonymization.sensitive_entity_dictionary import (
 from briefalpha_api.db.models import Evidence
 from briefalpha_api.db.session import SessionLocal
 from briefalpha_api.qa import run_qa
+import briefalpha_api.qa.service as qa_service
 from briefalpha_api.search.fts import index_evidence
 
 
@@ -133,3 +134,78 @@ async def test_qa_with_evidence_returns_answer_and_cites() -> None:
     assert not result.insufficient_evidence
     assert len(result.cited_evidence_ids) >= 1
     assert all(eid in {"ev_qa_0", "ev_qa_1"} for eid in result.cited_evidence_ids)
+
+
+@pytest.mark.asyncio
+async def test_judgement_scope_uses_drawer_evidence_without_fts(monkeypatch) -> None:
+    """Drawer QA should pass all judgement evidence to the LLM even when the
+    question does not keyword-match FTS. The drawer already defines the local
+    context; FTS is only a fallback for missing cached brief metadata."""
+    await _purge_evidence()
+    brief_id = "qa-judgement-full-context-2026-04-25"
+    sensitive_dict = build_sensitive_entity_dictionary(universe_tickers=["MTN", "AAPL"])
+    ctx = make_alias_context(
+        brief_id=brief_id,
+        universe_tickers=["MTN", "AAPL"],
+        entity_dictionary=sensitive_dict,
+    )
+    encrypt_alias_map(brief_id, ctx)
+
+    now = datetime.now(timezone.utc)
+    async with SessionLocal() as s:
+        for ticker, last, prev in [("MTN", "119.02", "124.60"), ("AAPL", "271.06", "272.70")]:
+            s.add(
+                Evidence(
+                    evidence_id=f"ev_{ticker.lower()}",
+                    brief_id=brief_id,
+                    source_tier="market",
+                    source_reliability=0.8,
+                    title=f"{ticker} 隔夜估算 {last}",
+                    excerpt=f"{ticker} 上次收盘 {prev}; 日内 {last} / {last}; 成交量 1.",
+                    quote_span=None,
+                    detected_tickers=[ticker],
+                    chunk_type="text",
+                    asset_class="us_equity",
+                    exposure_bucket=None,
+                    published_at=now,
+                    fetched_at=now,
+                    base_score=0.8,
+                    final_impact_score=0.6,
+                    score_breakdown={"source_name": "yfinance"},
+                    selected_for_llm=True,
+                    conflict=False,
+                    requires_review=False,
+                    supplementary_sources=[],
+                    raw_source_url=None,
+                )
+            )
+        await s.commit()
+
+    async def _fake_brief_cache(_brief_id: str):
+        return {
+            "judgements": [
+                {
+                    "id": "j1",
+                    "evidence": [
+                        {"evidence_id": "ev_mtn"},
+                        {"evidence_id": "ev_aapl"},
+                    ],
+                    "supplementary_sources": [],
+                }
+            ]
+        }
+
+    monkeypatch.setattr(qa_service, "get_brief_cache", _fake_brief_cache)
+
+    async with SessionLocal() as s:
+        result = await run_qa(
+            s,
+            brief_id=brief_id,
+            scope="judgement",
+            scope_target_id="j1",
+            question="这里面多少个标的是上涨，多少个是下跌？",
+        )
+
+    assert result.validation_passed is True
+    assert not result.insufficient_evidence
+    assert set(result.cited_evidence_ids) == {"ev_mtn", "ev_aapl"}

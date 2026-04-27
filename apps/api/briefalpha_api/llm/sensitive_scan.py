@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from briefalpha_api.anonymization.alias import AliasContext
 from briefalpha_api.anonymization.sensitive_entity_dictionary import (
@@ -76,3 +77,19 @@ def scrub_output(
             repl = ctx.ticker_to_alias[ticker]
         out = out.replace(name, repl)
     return out
+
+
+def scrub_tree(
+    node: Any,
+    *,
+    dictionary: SensitiveEntityDictionary,
+    ctx: AliasContext | None,
+) -> Any:
+    """Recursively scrub sensitive string leaves in a JSON-shaped tree."""
+    if isinstance(node, str):
+        return scrub_output(node, dictionary=dictionary, ctx=ctx)
+    if isinstance(node, dict):
+        return {k: scrub_tree(v, dictionary=dictionary, ctx=ctx) for k, v in node.items()}
+    if isinstance(node, list):
+        return [scrub_tree(item, dictionary=dictionary, ctx=ctx) for item in node]
+    return node

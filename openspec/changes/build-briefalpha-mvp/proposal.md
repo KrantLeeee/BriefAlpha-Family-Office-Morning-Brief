@@ -13,7 +13,7 @@ PRD 已经明确了功能边界、安全约束（最小必要披露 / k-anonymit
 - **LLM 安全编排层**：统一 audit wrapper；prompt 字段白名单；ticker aliasing + sensitive_entity_dictionary；输出反向敏感扫描；accuracy_validator（引用、quote_span、数字、极性、时间窗、敏感扫描）。
 - **三阶段 LLM 生成**：stage_a base_case + summary、stage_b 1-5 条 judgement、stage_c playbook_events。
 - **PDF 上传与解析**：pdfplumber 文本+表格抽取、pytesseract OCR fallback、vision LLM caption（用户授权）、本地 embedding chunking、merge 入 evidence_pool；支持 re-analyze、删除、partial_failure。
-- **Local + Global Evidence QA**：基于 SQLite FTS5 的本地全文检索；scope=judgement / evidence (P0) 与 scope=global (P1)；alias 反映射；validator 复用主管线。
+- **Local + Global Evidence QA**：scope=judgement / evidence (P0) 以当前 drawer / 单条 evidence 的全量可引用 evidence 作为上下文，不以 FTS 作为门槛；scope=global (P1) 基于 SQLite FTS5 / BM25 检索全部 evidence_pool；alias 反映射；validator 复用主管线。
 - **前端首屏**：morning_base_case + ai_judgement_summary（右）、portfolio_map treemap（左）、judgement_list、source_health，并按 `docs/Designs/BriefAlpha.pen` 中文主屏高度复刻视觉密度与排版。
 - **Evidence Drawer**：reasoning_chain + evidence_list + 内置 PDF viewer（page+bbox 高亮）+ local_qa。
 - **安全审计基础设施**：audit log（request_hash / cited_evidence_ids / failure_state / audit_mode 标识）、alias_map 加密存储至 16:00 HKT、第三方调用边界控制、source_health 聚合、conservative brief 降级。

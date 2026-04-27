@@ -11,21 +11,21 @@ evidence_search SHALL 使用本地 SQLite FTS5 / BM25 或等价轻量检索；�
 
 ### Requirement: scope 过滤
 
-检索接口 SHALL 支持 scope=judgement / scope=evidence / scope=global。检索 MUST 先按 scope 过滤 evidence 子集，再执行全文检索；scope=global 仅在 P1 启用。
+检索接口 SHALL 支持 scope=judgement / scope=evidence / scope=global。scope=global MUST 先按当日 evidence_pool 过滤再执行全文检索；scope=judgement / scope=evidence 属于 Local QA 上下文解析，不以全文检索作为回答门槛。
 
-#### Scenario: judgement scope 限定
+#### Scenario: judgement scope 由 Drawer 上下文解析
 
 - **WHEN** scope=judgement 且 judgement_id=J1
-- **THEN** 检索仅在 J1 的 evidence_ids 集合中进行
+- **THEN** QA 直接使用 J1 drawer 中展示的全部 evidence_ids（含 supplementary_sources）作为可引用上下文，不因用户问题未命中关键词而返回 0 命中
 
-#### Scenario: 单 evidence scope
+#### Scenario: 单 evidence scope 直接解析
 
 - **WHEN** scope=evidence 且 evidence_id=E1
-- **THEN** 检索仅命中 E1 内文本
+- **THEN** QA 直接使用 E1 作为唯一可引用上下文
 
 ### Requirement: 无结果短路
 
-若检索无结果 evidence_search MUST 直接返回 `insufficient_evidence`，wrapper SHALL NOT 调用 LLM。
+scope=global 检索无结果时 evidence_search MUST 直接返回 `insufficient_evidence`，wrapper SHALL NOT 调用 LLM。scope=judgement / scope=evidence 仅在对应上下文本身不存在或 evidence 已清理时返回 `insufficient_evidence`。
 
 #### Scenario: 无关问题
 

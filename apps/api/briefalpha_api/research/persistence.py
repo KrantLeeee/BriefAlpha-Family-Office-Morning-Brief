@@ -119,6 +119,21 @@ async def get_job_for_user(
     return job
 
 
+async def list_jobs_for_user(
+    session: AsyncSession,
+    *,
+    user_id: str,
+    limit: int = 50,
+) -> list[ResearchJob]:
+    stmt = (
+        select(ResearchJob)
+        .where(ResearchJob.user_id == user_id)
+        .order_by(ResearchJob.created_at.desc())
+        .limit(max(1, min(limit, 100)))
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
 async def mark_status(
     session: AsyncSession,
     *,
@@ -233,7 +248,7 @@ async def persist_chunks_and_evidence(
                 fetched_at=now,
                 base_score=0.4,
                 final_impact_score=0.4,
-                score_breakdown={"source": "research", "reliability": 0.5},
+                score_breakdown={"source_name": "research", "reliability": 0.5},
                 selected_for_llm=False,
                 conflict=False,
                 requires_review=False,

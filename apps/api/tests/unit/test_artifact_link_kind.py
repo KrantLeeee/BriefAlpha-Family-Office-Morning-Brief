@@ -1,4 +1,8 @@
-from briefalpha_api.pipeline.artifact import _build_evidence_card, _build_playbook_events
+from briefalpha_api.pipeline.artifact import (
+    _build_deep_read,
+    _build_evidence_card,
+    _build_playbook_events,
+)
 
 
 def test_evidence_card_stamps_link_kind_external():
@@ -84,3 +88,39 @@ def test_playbook_events_sort_by_beijing_time_and_recompute_next():
     assert [ev["time_hkt"] for ev in events] == ["09:30", "21:30"]
     assert events[0]["is_next"] is True
     assert events[1]["is_next"] is False
+
+
+def test_deep_read_trail_features_cited_total_reflects_selected_pool():
+    """Trail rows highlight what the LLM cited (`ev_cited` first), but the
+    total reflects the brief's evidence base (`selected`) so it aligns
+    with the source-health table on the same row of the layout. The old
+    behavior surfaced just the citation count, which read as a fixture
+    decoration when source-health reported many more raw items."""
+    full = [
+        {
+            "evidence_id": "ev_cited",
+            "source_tier": "news",
+            "source_name": "finnhub",
+            "title": "cited",
+            "published_at": "2026-04-27T08:00:00+00:00",
+            "raw_source_url": "https://example.com/cited",
+        },
+        {
+            "evidence_id": "ev_raw",
+            "source_tier": "official",
+            "source_name": "sec",
+            "title": "raw only",
+            "published_at": "2026-04-27T07:00:00+00:00",
+            "raw_source_url": "https://example.com/raw",
+        },
+    ]
+    deep = _build_deep_read(
+        selected=full,
+        full=full,
+        stage_a={"cited_evidence_ids": ["ev_cited"]},
+        stage_b=None,
+        stage_c=None,
+    )
+
+    assert deep["evidence_total"] == 2  # selected pool, not citation count
+    assert deep["evidence_trail"][0]["label"] == "finnhub · cited"

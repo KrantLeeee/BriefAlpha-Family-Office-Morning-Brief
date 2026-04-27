@@ -72,9 +72,9 @@ export function DeepRead({ deepRead, sourceHealth }: Props) {
               <span className="font-sans text-[15px] font-medium text-ink-900">数据源健康</span>
               <span className="font-mono text-[10px] text-ink-300">更新 {sourceHealth.as_of_hkt}</span>
             </div>
-            {sourceHealth.rows.map((row) => (
+            {sourceHealth.rows.map((row, idx) => (
               <div
-                key={row.name}
+                key={row.source_name ?? `${row.name}-${idx}`}
                 className="grid grid-cols-[110px_90px_1fr] items-baseline gap-2 font-mono text-[11px]"
               >
                 <span className="text-ink-700">{row.name}</span>

@@ -30,6 +30,13 @@ class RawItem(BaseModel):
     published_at: datetime | None = None
     fetched_at: datetime
     raw_payload_hash: str | None = None
+    # Aggregator that fetched the article (finnhub / newsapi / gdelt /
+    # google_news_rss / yfinance / sec_edgar...). `source_name` is the
+    # original *publisher* (Yahoo, Reuters, NVIDIA Investor Relations…)
+    # which the user expects to see on the evidence card; `fetched_via`
+    # preserves the aggregator information for source-health labelling
+    # and audit traceability without polluting the user-facing label.
+    fetched_via: str | None = None
 
 
 class IngestionAdapter(abc.ABC):

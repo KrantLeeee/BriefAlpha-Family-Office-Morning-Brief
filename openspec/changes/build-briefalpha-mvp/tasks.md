@@ -131,7 +131,7 @@
 
 - [x] 13.1 `GET /api/brief/today`：缓存优先 / stale 降级 / 90s 超时上一日
 - [x] 13.2 `GET /api/judgement/{id}/drawer`：reasoning_chain + evidences + suggested_questions；同会话缓存
-- [x] 13.3 `POST /api/qa`：(a) 用户问题端 alias 替换 → (b) evidence-search 在 evidence_pool_full 中检索 → (c) 检索结果**必经 anonymization 转 AliasedEvidence**（FTS 行禁止直接拼 prompt，wrapper 输入端会拦截）→ (d) wrapper → validator → 安全反映射；scope=judgement/evidence (P0) / global (P1)；alias_map 过期 → `brief_expired`；连续 3 次失败 → 友好失败文案
+- [x] 13.3 `POST /api/qa`：(a) 用户问题端 alias 替换 → (b) scope=judgement 直接取 cached brief 中该 judgement 的全量 evidence_ids，scope=evidence 直接取单条 evidence，scope=global 才通过 evidence-search 在 evidence_pool_full 中检索 → (c) 所有 evidence 上下文**必经 anonymization 转 AliasedEvidence**（FTS 行 / raw evidence 禁止直接拼 prompt，wrapper 输入端会拦截）→ (d) wrapper → validator → 安全反映射；alias_map 过期 → `brief_expired`；连续 3 次失败 → 友好失败文案
 - [x] 13.4 `GET /api/source-health`
 - [x] 13.5 `GET /api/portfolio`（仅授权用户）
 - [x] 13.6 一致错误结构 `{error: {code, message, retry_after?}}`
@@ -237,7 +237,7 @@ just key configuration + basic debugging.
 
 ### 20.5 QA real flow (task 13.3)
 
-- [x] 20.5.1 `briefalpha_api/qa/service.py` — orchestrates: load alias_map → alias question → run FTS search in scope → rebuild `AliasedEvidence` from DB rows → call `call_text_llm(qa_local|qa_global)` with `accuracy_validate` hook → reverse_alias on answer → return citations / `insufficient_evidence` / `brief_expired`
+- [x] 20.5.1 `briefalpha_api/qa/service.py` — orchestrates: load alias_map → alias question → resolve evidence context (judgement full drawer evidence / single evidence direct / global FTS search) → rebuild `AliasedEvidence` from DB rows → call `call_text_llm(qa_local|qa_global)` with `accuracy_validate` hook → reverse_alias on answer → return citations / `insufficient_evidence` / `brief_expired`
 - [x] 20.5.2 `/api/qa` router uses the service; preserves existing `QaResponse` shape so frontend works unchanged
 - [x] 20.5.3 Persist 3-turn QA context to redis `qa:context:{brief_id}:{scope}:{target_id}`
 
@@ -273,4 +273,3 @@ just key configuration + basic debugging.
 - [x] 20.9.5 Unit: `/api/_analytics` round-trips through DB
 - [x] 20.9.6 Pipeline integration: full flow including audit_log row inspection
 - [x] 20.9.7 Run `pytest` and `python -m tests.golden.runner`; capture metrics report for review
-

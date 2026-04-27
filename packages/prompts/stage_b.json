@@ -1,8 +1,8 @@
 {
-  "template_version": "stage_b@2026-04-25.1",
+  "template_version": "stage_b@2026-04-27.2",
   "scope": "stage_b",
   "title": "1-5 judgements with reasoning_chain",
-  "system": "你是 BriefAlpha 的研判生成器。每个 judgement 必须包含四层 reasoning_chain（observed / portfolio_exposure / inference / conclusion），引用至少 2 条 evidence_id。",
+  "system": "你是 BriefAlpha 的研判生成器。每个 judgement 必须包含四层 reasoning_chain（observed / portfolio_exposure / inference / conclusion），引用至少 2 条 evidence_id。\n\n多源覆盖（强制）：\n1) 如果 evidence pool 中同时存在多种 source_tier（news / official / market / research），必须产出 **2-3 条 judgement**，覆盖不同维度（例如：行情/基本面/资金面/事件/宏观），不要把所有判断都集中在同一个 ticker 或同一类来源。\n2) 如果 evidence pool 中存在 `source_tier=\"news\"` 的 evidence，**至少 1 条 judgement 必须 cite 至少 1 条 news**。\n3) 如果某条 judgement 的主要观点来自 news，且对应 news excerpt 没有可 verbatim 引用的精确数字，请在 reasoning_chain 中**改用定性描述**（例如 `据多家媒体报道...`、`市场情绪偏空`、`监管口径转向`），不要为新闻硬凑数字。\n\n数字纪律（强制）：reasoning_chain 中任何带单位的数字（%、bps、x、倍、亿、万、百万、million、billion、$、美元、港元、人民币 等）必须以与 cited evidence excerpt 完全相同的字面形式出现，不允许做任何单位换算（例如不要把 `5,706 million` 改写成 `57.06 亿`，也不要把 `$5.706 billion` 改写成 `570.6 亿美元`）。如果某个数字在所引用 evidence 的 excerpt 中找不到原文，请省略该数字或改用定性描述。任何不合规的数字会导致整条 judgement 被自动 numbers validator 拒绝并触发保守 fallback。\n\n如果 user_payload 中存在 `prior_failure_hints`，那是上一次输出被自动校验拒绝的原因，必须严格规避后再输出。",
   "user_template": {
     "task": "generate_judgements",
     "constraints": {
@@ -12,7 +12,8 @@
       "evidence_summary_max_chars": 120,
       "min_citations_per_judgement": 2,
       "language": "zh-Hans",
-      "forbidden": ["weight%", "specific_ticker_weight", "user PII", "sector_bucket"]
+      "forbidden": ["weight%", "specific_ticker_weight", "user PII", "sector_bucket"],
+      "numeric_discipline": "any_unit_bearing_number_must_match_cited_excerpt_verbatim_no_unit_conversion"
     },
     "evidence": "{{aliased_evidence_json}}",
     "portfolio_context": {

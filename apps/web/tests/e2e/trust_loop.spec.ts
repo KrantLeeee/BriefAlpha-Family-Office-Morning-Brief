@@ -32,7 +32,7 @@ test.describe("BriefAlpha — trust loop happy path (demo mode)", () => {
 
   test("RefreshButton triggers refresh and shows the receipt", async ({ page }) => {
     await page.goto("/");
-    const button = page.getByRole("button", { name: "刷新数据" });
+    const button = page.getByRole("button", { name: "更新今日简报" });
     await expect(button).toBeVisible();
 
     // Watch the POST to confirm it actually fires.
@@ -43,8 +43,8 @@ test.describe("BriefAlpha — trust loop happy path (demo mode)", () => {
     const resp = await refreshPromise;
     expect(resp.ok()).toBeTruthy();
 
-    // After router.refresh() the label switches to "已刷新 HH:MM" or "已排队".
-    await expect(button).toHaveText(/已刷新 \d{2}:\d{2}|已排队/);
+    // After router.refresh() the label switches to "已更新 HH:MM" or "已排队".
+    await expect(button).toHaveText(/已更新 \d{2}:\d{2}|已排队/);
   });
 
   test("review chip opens ReviewModal with reason and 我已审阅 button", async ({ page }) => {

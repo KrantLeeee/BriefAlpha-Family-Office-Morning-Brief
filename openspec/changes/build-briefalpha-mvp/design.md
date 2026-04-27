@@ -98,8 +98,9 @@ briefalpha/
               evidence-search FTS5          → input sensitive scan
                   ↑                          → provider call
                   |                          → output sensitive scan
-                  |  (QA: retrieved evidence  → accuracy_validator
-                  |   必经 anonymization 才入 prompt)
+                  |  (QA global: retrieved evidence
+                  |   QA local: drawer/evidence full context
+                  |   两者均必经 anonymization 才入 prompt)
                   └──────[QA path]──────→    → safe reverse alias
                                                  (仅 cited 上下文内 alias 才还原)
                                               → audit log
@@ -115,12 +116,12 @@ briefalpha/
 
 - `evidence_pool_full`：当日所有去重 + 评分后的 evidence 全集，用于 evidence-search、QA、drawer 扩展查询、audit 追溯。同一份 evidence 实体不双写，仅以 `selected_for_llm: bool` 区分。
 - `selected_evidence_for_llm`：top_k=20 条进入 stage_a / stage_b LLM 的子集。
-- `aliased_evidence`：上述子集（或 QA 检索子集）经 anonymization 后的对外形态，对应 pydantic 类型 `AliasedEvidence`。
+- `aliased_evidence`：上述子集、QA local drawer/evidence 全量上下文、或 QA global 检索子集经 anonymization 后的对外形态，对应 pydantic 类型 `AliasedEvidence`。
 
 关键不变量：
 - LLM 边界唯一入口：`apps/api/llm/wrapper.py`；router / pipeline / qa 都不直接 import provider SDK。CI lint 用 import-linter 强制。
 - anonymization 是从内部数据模型到 LLM payload 的"穿越层"，对每一个跨越者做白名单 + 敏感扫描双重校验。
-- QA 路径同样适用：evidence-search 返回的是 `evidence_pool_full` 中的 raw evidence，QA handler MUST 再调一次 anonymization 生成 `AliasedEvidence` 才能拼 prompt；FTS 行直接进 LLM 是禁止路径，wrapper 输入端白名单会拦截。
+- QA 路径同样适用：`scope=judgement` MUST 先从 cached brief 中解析该 judgement 展示的全部 evidence_ids（含 supplementary_sources）并 hydrate raw evidence；`scope=evidence` MUST 直接 hydrate 单条 evidence；`scope=global` 才通过 evidence-search 从 `evidence_pool_full` 召回 raw evidence。三种路径都 MUST 再调一次 anonymization 生成 `AliasedEvidence` 才能拼 prompt；FTS 行或 raw evidence 直接进 LLM 是禁止路径，wrapper 输入端白名单会拦截。
 - conflict_resolve 必须在 final_scoring **之前**完成，使 conflict 标记可作为 BPS 的 market_confirmation 降权信号。
 
 ### 4. 安全架构（PRD 安全核心的工程落地）

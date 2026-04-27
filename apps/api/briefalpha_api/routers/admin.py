@@ -20,10 +20,10 @@ from sqlalchemy import desc, func, select
 
 from briefalpha_api.audit import AuditRecord, record_audit
 from briefalpha_api.auth import require_admin_token
-from briefalpha_api.cache import invalidate_brief_cache
+from briefalpha_api.cache import get_brief_cache, invalidate_brief_cache
 from briefalpha_api.db.models import AuditLog, SourceHealthHistory
 from briefalpha_api.db.session import get_session
-from briefalpha_api.routers.brief import _spawn_generation, _today_hkt
+from briefalpha_api.routers.brief import _generation_state, _spawn_generation, _today_hkt
 from briefalpha_api.settings import CONFIG_DIR, get_settings
 
 router = APIRouter()
@@ -152,7 +152,11 @@ async def missing_aliases(_token: str = Depends(require_admin_token)) -> dict[st
 
 class AuditModeToggle(BaseModel):
     mode: Literal["demo", "compliance"]
-    confirm_token: str = Field(..., min_length=8, description="echo of presented admin token; gates accidental flips")
+    confirm_token: str = Field(
+        ...,
+        min_length=8,
+        description="echo of presented admin token; gates accidental flips",
+    )
     reason: str = Field(..., min_length=12, max_length=400)
 
 
@@ -168,7 +172,10 @@ async def toggle_audit_mode(
             detail={
                 "error": {
                     "code": "confirm_token_mismatch",
-                    "message": "confirm_token must equal the presented admin token (twin-factor confirmation).",
+                    "message": (
+                        "confirm_token must equal the presented admin token "
+                        "(twin-factor confirmation)."
+                    ),
                 }
             },
         )
@@ -178,7 +185,9 @@ async def toggle_audit_mode(
     # `.env` / settings.json. Audit-log entry records intent + reason so
     # the trail is preserved even before the env actually flips.
     rec = AuditRecord(
-        request_hash=hashlib.sha256(json.dumps(payload.model_dump(), sort_keys=True).encode("utf-8")).hexdigest(),
+        request_hash=hashlib.sha256(
+            json.dumps(payload.model_dump(), sort_keys=True).encode("utf-8")
+        ).hexdigest(),
         response_hash=None,
         scope="admin_audit_mode_toggle",
         cited_evidence_ids=[],
@@ -195,7 +204,10 @@ async def toggle_audit_mode(
     return {
         "previous_mode": previous,
         "requested_mode": payload.mode,
-        "note": "Recorded the toggle intent. Update BRIEFALPHA_AUDIT_MODE in settings to take effect on next start.",
+        "note": (
+            "Recorded the toggle intent. Update BRIEFALPHA_AUDIT_MODE "
+            "in settings to take effect on next start."
+        ),
     }
 
 
@@ -231,5 +243,29 @@ async def refresh_data(request: Request) -> dict[str, Any]:
             "note": "示例数据，非实时采集",
         }
 
-    _spawn_generation(brief_id)
-    return {"status": "queued", "brief_id": brief_id}
+    _spawn_generation(brief_id, force=True)
+    state = _generation_state.get(brief_id, {})
+    return {
+        "status": "queued",
+        "brief_id": brief_id,
+        "generation_status": state.get("status", "generating"),
+        "started_at": state.get("started_at"),
+    }
+
+
+@router.get("/admin/data/refresh/status")
+async def refresh_status() -> dict[str, Any]:
+    brief_id = _today_hkt()
+    cached = await get_brief_cache(brief_id)
+    state = _generation_state.get(brief_id, {})
+    status = state.get("status")
+    if cached is not None and status != "generating":
+        status = "ready"
+    return {
+        "brief_id": brief_id,
+        "status": status or ("ready" if cached is not None else "idle"),
+        "started_at": state.get("started_at"),
+        "finished_at": state.get("finished_at"),
+        "error": state.get("error"),
+        "cached": cached is not None,
+    }

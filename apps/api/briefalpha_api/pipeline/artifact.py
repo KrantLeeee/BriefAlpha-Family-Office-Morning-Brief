@@ -16,16 +16,18 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from briefalpha_api.portfolio.display_names import display_text
+
 HKT = ZoneInfo("Asia/Hong_Kong")
 
 # (col_start, col_span, row, color_token) — sourced from frame fFOSV's `tree`.
 _LAYOUT: dict[str, tuple[int, int, int, str, str | None]] = {
     "NVDA":     (  0, 209, 0, "treemap.nvda",    None),
-    "0700.HK":  (209, 175, 0, "treemap.tencent", "0700"),
+    "0700.HK":  (209, 175, 0, "treemap.tencent", "0700.HK"),
     "AAPL":     (384, 140, 0, "treemap.aapl",    None),
     "MSFT":     (524, 116, 0, "treemap.msft",    None),
     "TLT":      (  0, 142, 1, "treemap.tlt",     None),
-    "9988.HK":  (142, 114, 1, "treemap.baba",    "BABA"),
+    "9988.HK":  (142, 114, 1, "treemap.baba",    "9988.HK"),
     "GLD":      (256, 114, 1, "treemap.gld",     None),
     "CASH":     (370, 128, 1, "treemap.cash",    None),
     "TSLA":     (498,  71, 1, "treemap.tsla",    None),
@@ -52,7 +54,7 @@ def classify_link_kind(url: str | None) -> str:
         return "unavailable"
     if url.startswith("briefalpha://demo/"):
         return "internal_demo"
-    if url.startswith("research://"):
+    if url.startswith(("research://", "yfinance://")):
         return "internal_research"
     if url.startswith(("http://", "https://")):
         return "external"
@@ -113,7 +115,13 @@ def build_brief_artifact(
         stage_c=pipeline_output.get("stage_c"),
         stage_b=pipeline_output.get("stage_b"),
     )
-    deep_read = _build_deep_read(selected=selected, full=pool)
+    deep_read = _build_deep_read(
+        selected=selected,
+        full=pool,
+        stage_a=pipeline_output.get("stage_a"),
+        stage_b=pipeline_output.get("stage_b"),
+        stage_c=pipeline_output.get("stage_c"),
+    )
     degraded_sources = [
         row["name"]
         for row in source_health.get("rows", [])
@@ -172,7 +180,9 @@ def _build_base_case(
     quotes: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     overnight_pct, direction = _portfolio_overnight(portfolio_positions, quotes)
-    headline = (stage_a or {}).get("base_case_headline") or "暂无核心判断（pipeline 已生成，等待 LLM 接入）"
+    headline = (stage_a or {}).get("base_case_headline") or (
+        "暂无核心判断（pipeline 已生成，等待 LLM 接入）"
+    )
     summary = (stage_a or {}).get("summary") or "等待 LLM 输出 base_case 摘要；当前 stub 模式。"
     cited = (stage_a or {}).get("cited_evidence_ids") or []
     return {
@@ -311,14 +321,19 @@ def _build_judgements(
                 "id": f"j{raw.get('rank', len(out) + 1)}",
                 "rank": raw.get("rank", len(out) + 1),
                 "level": raw.get("level", "watch"),
-                "level_label": _level_label(raw.get("level", "watch"), raw.get("requires_review", False)),
-                "title": raw.get("title", "未命名研判"),
-                "metadata": _judgement_metadata(raw, evidence_cards),
+                "level_label": _level_label(
+                    raw.get("level", "watch"),
+                    raw.get("requires_review", False),
+                ),
+                "title": display_text(raw.get("title", "未命名研判")),
+                "metadata": display_text(_judgement_metadata(raw, evidence_cards)),
                 "evidence_count": len(cited),
                 "requires_review": bool(raw.get("requires_review")),
                 "review": derive_review(raw),
                 "no_direct_portfolio_link": bool(raw.get("no_direct_portfolio_link")),
-                "reasoning_chain": raw.get("reasoning_chain", {}),
+                "reasoning_chain": _display_reasoning_chain(
+                    raw.get("reasoning_chain", {}) or {}
+                ),
                 "evidence": evidence_cards,
                 "supplementary_sources": supplementary[:3],
                 "suggested_questions": _suggested_questions(raw),
@@ -341,6 +356,13 @@ def derive_review(raw: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+def _display_reasoning_chain(chain: dict[str, Any]) -> dict[str, Any]:
+    return {
+        k: display_text(v) if isinstance(v, str) else v
+        for k, v in chain.items()
+    }
+
+
 def _level_label(level: str, requires_review: bool) -> str:
     base = LEVEL_LABEL.get(level, "关注")
     if requires_review:
@@ -349,7 +371,13 @@ def _level_label(level: str, requires_review: bool) -> str:
 
 
 def _judgement_metadata(raw: dict[str, Any], evidence_cards: list[dict[str, Any]]) -> str:
-    sources = ", ".join({c.get("source_label", "").split(" · ")[0] for c in evidence_cards if c.get("source_label")})
+    sources = ", ".join(
+        {
+            c.get("source_label", "").split(" · ")[0]
+            for c in evidence_cards
+            if c.get("source_label")
+        }
+    )
     cited_n = len(evidence_cards)
     bits = [
         sources or "多源",
@@ -384,8 +412,8 @@ def _build_evidence_card(ev: dict[str, Any], idx: int) -> dict[str, Any]:
         "evidence_id": ev["evidence_id"],
         "index_label": label,
         "source_label": " · ".join(filter(None, [source_name or source_tier, pub_label])),
-        "title": ev.get("title", ""),
-        "quote": ev.get("excerpt", ""),
+        "title": display_text(ev.get("title", "")),
+        "quote": display_text(ev.get("excerpt", "")),
         "source_link": url,
         "link_kind": classify_link_kind(url),
         "conflict": bool(ev.get("conflict")),
@@ -423,8 +451,8 @@ def _build_playbook_events(
             {
                 "time_hkt": ev.get("time_hkt", "00:00"),
                 "relative_time_hkt": ev.get("relative_time_hkt", ""),
-                "label": ev.get("label", ""),
-                "detail": ev.get("detail", ""),
+                "label": display_text(ev.get("label", "")),
+                "detail": display_text(ev.get("detail", "")),
                 "related_judgement_ids": related_judgement_ids,
                 "related_evidence_ids": list(dict.fromkeys(related_evidence_ids)),
                 "is_next": idx == 0,
@@ -460,23 +488,68 @@ def _build_deep_read(
     *,
     selected: list[dict[str, Any]],
     full: list[dict[str, Any]],
+    stage_a: dict[str, Any] | None = None,
+    stage_b: dict[str, Any] | None = None,
+    stage_c: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    pool_index = {ev.get("evidence_id"): ev for ev in full}
+    cited_ids = _collect_cited_evidence_ids(stage_a=stage_a, stage_b=stage_b, stage_c=stage_c)
+    if cited_ids:
+        source_rows = [pool_index[eid] for eid in cited_ids if eid in pool_index]
+    else:
+        source_rows = selected
+
     rows = []
-    for ev in selected[:3]:
+    for ev in source_rows[:3]:
         pub = ev.get("published_at") or ""
         ts = pub[:16] if isinstance(pub, str) else ""
         rows.append(
             {
                 "timestamp": ts,
-                "label": f"{ev.get('source_name', '')} · {ev.get('title', '')[:40]}",
+                "label": display_text(
+                    f"{ev.get('source_name', '')} · {ev.get('title', '')[:40]}"
+                ),
+                "source_tier": ev.get("source_tier"),
                 "source_link": public_source_url(ev.get("raw_source_url")),
                 "link_kind": classify_link_kind(public_source_url(ev.get("raw_source_url"))),
             }
         )
+    # Total reflects the brief's evidence base, not the citation count.
+    # `selected` is the LLM-fed top-K (post tier-floor selection); falling
+    # back to `full` covers the conservative path where nothing was selected.
+    if selected:
+        evidence_total = len(selected)
+    else:
+        evidence_total = len(full)
     return {
         "evidence_trail": rows,
-        "evidence_total": len(full),
+        "evidence_total": evidence_total,
     }
+
+
+def _collect_cited_evidence_ids(
+    *,
+    stage_a: dict[str, Any] | None,
+    stage_b: dict[str, Any] | None,
+    stage_c: dict[str, Any] | None,
+) -> list[str]:
+    ids: list[str] = []
+
+    def add_many(values: Any) -> None:
+        if not isinstance(values, list):
+            return
+        for value in values:
+            if isinstance(value, str) and value not in ids:
+                ids.append(value)
+
+    add_many((stage_a or {}).get("cited_evidence_ids"))
+    for judgement in (stage_b or {}).get("judgements", []) or []:
+        if isinstance(judgement, dict):
+            add_many(judgement.get("cited_evidence_ids"))
+    for event in (stage_c or {}).get("playbook_events", []) or []:
+        if isinstance(event, dict):
+            add_many(event.get("related_evidence_ids"))
+    return ids
 
 
 # ---------------------------------------------------------------------------

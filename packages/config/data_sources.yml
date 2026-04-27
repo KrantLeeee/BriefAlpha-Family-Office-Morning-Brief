@@ -8,8 +8,13 @@ market:
   enabled: true
 
 news:
-  primary: gdelt
-  fallbacks: [google_news_rss]
+  # GDELT API host (api.gdeltproject.org) is DNS-poisoned to TEST-NET-2
+  # (198.18.0.0/15) on CN/HK networks, causing a 3s wasted connect timeout
+  # every ingestion run. Finnhub is promoted to primary; flip
+  # `providers.gdelt.enabled` back to true on networks where GDELT is
+  # actually reachable.
+  primary: finnhub
+  fallbacks: [newsapi, google_news_rss]
   rate_limit_per_min: 30
   enabled: true
 
@@ -33,11 +38,13 @@ providers:
     enabled: true
   stooq:
     enabled: true
-  finnhub:
-    enabled: false
   alpha_vantage:
     enabled: false
   gdelt:
+    enabled: false
+  finnhub:
+    enabled: true
+  newsapi:
     enabled: true
   google_news_rss:
     enabled: true

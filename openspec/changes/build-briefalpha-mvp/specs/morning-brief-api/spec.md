@@ -34,28 +34,28 @@
 
 (a) **问题端**：用对应 brief_id 的 alias_map 替换用户问题中的真实 ticker / 公司名（基于 sensitive_entity_dictionary 命中规则）；
 
-(b) **检索结果端**：evidence-search 从 `evidence_pool_full` 检索得到的 raw evidence 子集 MUST 经 data-anonymization 模块批量转换为 `AliasedEvidence`（白名单字段、aliased title / excerpt / quote_span）后才能拼入 LLM prompt。MUST NOT 直接把 FTS 索引行（含原始 title / excerpt / detected_tickers）拼入 prompt；wrapper 输入端字段白名单校验对未 aliased 的 payload MUST 阻断。
+(b) **证据上下文端**：`scope=judgement` 从 cached brief 解析该 judgement drawer 展示的全部 evidence_ids（含 supplementary_sources）；`scope=evidence` 直接使用单条 evidence；`scope=global` 才由 evidence-search 从 `evidence_pool_full` 检索得到 raw evidence 子集。所有 raw evidence MUST 经 data-anonymization 模块批量转换为 `AliasedEvidence`（白名单字段、aliased title / excerpt / quote_span）后才能拼入 LLM prompt。MUST NOT 直接把 FTS 索引行（含原始 title / excerpt / detected_tickers）或 raw evidence 拼入 prompt；wrapper 输入端字段白名单校验对未 aliased 的 payload MUST 阻断。
 
 响应含 `answer, cited_evidence_ids, quote_spans_original, validation_passed`，并经 data-anonymization 的"安全反映射"（仅 cited evidence 上下文内的 alias 才还原；其他 alias 视为 `unsafe_generated_alias` 保持占位）。
 
 #### Scenario: scope=judgement
 
 - **WHEN** scope=judgement、judgement_id 提供
-- **THEN** 检索仅限于该 judgement 的 evidence_ids，回答 cited_evidence_ids ⊆ 该 judgement 的 evidence_ids
+- **THEN** QA 使用该 judgement drawer 展示的全量 evidence_ids 作为上下文，回答 cited_evidence_ids ⊆ 该 judgement 的 evidence_ids；不得因用户问题未命中 FTS 关键词而短路
 
 #### Scenario: scope=evidence 单条
 
 - **WHEN** scope=evidence、evidence_id 提供
-- **THEN** cited_evidence_ids 只能含该 evidence_id
+- **THEN** QA 使用该 evidence_id 作为唯一上下文，cited_evidence_ids 只能含该 evidence_id
 
 #### Scenario: scope=global（P1）
 
 - **WHEN** scope=global
 - **THEN** 检索覆盖全部 `evidence_pool_full`，回答仍含 ≥ 1 cited_evidence_ids 与 quote_span_original
 
-#### Scenario: retrieved evidence 必经 anonymization
+#### Scenario: evidence context 必经 anonymization
 
-- **WHEN** evidence-search 返回 raw evidence 子集（含原始 title / excerpt / detected_tickers）
+- **WHEN** QA handler 解析出 raw evidence 上下文（来自 drawer / 单条 evidence / global search）
 - **THEN** QA handler 先调用 anonymization 批量生成 AliasedEvidence 才组装 prompt；wrapper 输入端字段白名单校验拒绝任何含原文 ticker / 公司名的 payload
 
 #### Scenario: alias_map 已过期

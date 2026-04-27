@@ -3,7 +3,10 @@
 Sequence:
   1. Decrypt the brief's alias_map (else `brief_expired`).
   2. Apply alias replacement to the user question.
-  3. FTS search in the requested scope (judgement / evidence / global).
+  3. Resolve evidence scope:
+     - judgement: all evidence displayed in that judgement drawer (no FTS gate)
+     - evidence: the one requested evidence row
+     - global: FTS search over evidence_pool_full
   4. Hydrate matching `Evidence` rows from SQLite, then run them through
      anonymization → `AliasedEvidence` (FTS rows are NOT allowed to flow
      directly into the prompt — wrapper input scan would catch it anyway).
@@ -31,7 +34,7 @@ from briefalpha_api.anonymization.reverse import reverse_alias
 from briefalpha_api.anonymization.sensitive_entity_dictionary import (
     build_sensitive_entity_dictionary,
 )
-from briefalpha_api.cache import get_json, qa_context_key, set_json
+from briefalpha_api.cache import get_brief_cache, get_json, qa_context_key, set_json
 from briefalpha_api.db.models import Evidence
 from briefalpha_api.llm import call_text_llm
 from briefalpha_api.llm.prompt_builder import build_request
@@ -121,33 +124,16 @@ async def run_qa(
     # boundary in cleartext).
     aliased_question, _segs = replace_in_text(question, ctx, field="user_question")
 
-    # Step 2b: the FTS index stores raw (unaliased) evidence by design,
-    # so we MUST search with the original terms. Aliasing the question
-    # before search would silently cause "no hits" for any ticker query.
-    hits = await search(
+    ev_rows = await _resolve_evidence_rows(
         session,
         brief_id=brief_id,
-        query=_search_query_from(question),
         scope=scope,
-        judgement_id=scope_target_id if scope == "judgement" else None,
-        evidence_id=scope_target_id if scope == "evidence" else None,
-        limit=SEARCH_LIMIT,
+        scope_target_id=scope_target_id,
+        question=question,
     )
-    if not hits:
-        return QaServiceResult(
-            answer="evidence 不足以回答该问题（基于今日 brief 的可引用范围）。",
-            insufficient_evidence=True,
-            validation_passed=True,
-            cited_evidence_ids=[],
-        )
-
-    hit_ids = [h.evidence_id for h in hits]
-    ev_rows = (
-        await session.execute(select(Evidence).where(Evidence.evidence_id.in_(hit_ids)))
-    ).scalars().all()
     if not ev_rows:
         return QaServiceResult(
-            answer="evidence 不足以回答该问题（FTS 命中但 evidence 表已清理）。",
+            answer="evidence 不足以回答该问题（基于今日 brief 的可引用范围）。",
             insufficient_evidence=True,
             validation_passed=True,
         )
@@ -313,6 +299,77 @@ def _search_query_from(question: str) -> str:
 
     cleaned = re.sub(r"[^\w一-鿿\s]", " ", question)
     return cleaned.strip()
+
+
+async def _resolve_evidence_rows(
+    session: AsyncSession,
+    *,
+    brief_id: str,
+    scope: Scope,
+    scope_target_id: str | None,
+    question: str,
+) -> list[Evidence]:
+    if scope == "judgement" and scope_target_id:
+        evidence_ids = await _judgement_evidence_ids_from_cached_brief(
+            brief_id=brief_id,
+            judgement_id=scope_target_id,
+        )
+        if evidence_ids:
+            return await _hydrate_evidence_rows(session, evidence_ids)
+        log.warning(
+            "judgement QA could not resolve cached evidence ids; falling back to FTS",
+            extra={"brief_id": brief_id, "judgement_id": scope_target_id},
+        )
+
+    if scope == "evidence" and scope_target_id:
+        return await _hydrate_evidence_rows(session, [scope_target_id])
+
+    hits = await search(
+        session,
+        brief_id=brief_id,
+        query=_search_query_from(question),
+        scope=scope,
+        evidence_id=scope_target_id if scope == "evidence" else None,
+        limit=SEARCH_LIMIT,
+    )
+    if not hits:
+        return []
+    return await _hydrate_evidence_rows(session, [h.evidence_id for h in hits])
+
+
+async def _judgement_evidence_ids_from_cached_brief(
+    *,
+    brief_id: str,
+    judgement_id: str,
+) -> list[str]:
+    brief = await get_brief_cache(brief_id)
+    if not isinstance(brief, dict):
+        return []
+    for judgement in brief.get("judgements") or []:
+        if not isinstance(judgement, dict) or judgement.get("id") != judgement_id:
+            continue
+        ids: list[str] = []
+        for card in judgement.get("evidence") or []:
+            if isinstance(card, dict) and card.get("evidence_id"):
+                ids.append(str(card["evidence_id"]))
+        for src in judgement.get("supplementary_sources") or []:
+            if isinstance(src, dict) and src.get("evidence_id"):
+                ids.append(str(src["evidence_id"]))
+        return list(dict.fromkeys(ids))
+    return []
+
+
+async def _hydrate_evidence_rows(
+    session: AsyncSession,
+    evidence_ids: list[str],
+) -> list[Evidence]:
+    if not evidence_ids:
+        return []
+    rows = (
+        await session.execute(select(Evidence).where(Evidence.evidence_id.in_(evidence_ids)))
+    ).scalars().all()
+    by_id = {row.evidence_id: row for row in rows}
+    return [by_id[eid] for eid in evidence_ids if eid in by_id]
 
 
 def _clean_answer_text(answer: str) -> str:

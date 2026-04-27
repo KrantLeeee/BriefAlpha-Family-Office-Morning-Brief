@@ -73,4 +73,23 @@ require.cache[nextNavigationKey] = {
   assert.ok(!html.includes("⚠ 待复核"), "reviewed chip should drop ⚠ 待复核 suffix");
 }
 
-console.log("review-modal: 4 cases OK");
+// 5) JudgementList chip is visibly underlined by default (a chip-only
+//    `hover:underline` reads as static text — the previous styling let
+//    users miss the click target entirely).
+{
+  const { JudgementList } = require("../../components/JudgementList");
+  const judgement = {
+    id: "j-5", rank: 1, level: "watch", level_label: "关注 · ⚠ 待复核",
+    title: "Visibility check", metadata: "m", evidence_count: 2,
+    requires_review: true,
+    review: { reason: "data_gap", note: "", status: "open", reviewed_at: null },
+    no_direct_portfolio_link: false,
+    reasoning_chain: { observed: "", portfolio_exposure: "", inference: "", conclusion: "" },
+    evidence: [], supplementary_sources: [], suggested_questions: [],
+  };
+  const html = renderToStaticMarkup(React.createElement(JudgementList, { judgements: [judgement] }));
+  assert.ok(html.includes("decoration-dotted"), "chip should be permanently underlined (dotted)");
+  assert.ok(html.includes("cursor-pointer"), "chip should advertise pointer cursor");
+}
+
+console.log("review-modal: 5 cases OK");

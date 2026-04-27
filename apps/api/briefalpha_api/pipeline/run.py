@@ -22,7 +22,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import delete, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from briefalpha_api.anonymization import (
@@ -34,12 +34,13 @@ from briefalpha_api.anonymization.sensitive_entity_dictionary import (
     build_sensitive_entity_dictionary,
 )
 from briefalpha_api.audit.source_health_aggregator import aggregate_source_health
-from briefalpha_api.db.models import Evidence
+from briefalpha_api.db.models import Evidence, ResearchChunk
 from briefalpha_api.db.session import SessionLocal
 from briefalpha_api.fixtures.brief import get_demo_source_health
 from briefalpha_api.ingestion.runner import run_ingestion
 from briefalpha_api.llm import call_text_llm, conservative_fallback
 from briefalpha_api.llm.prompt_builder import build_request
+from briefalpha_api.llm.sensitive_scan import scrub_tree
 from briefalpha_api.pipeline import stages
 from briefalpha_api.pipeline.artifact import build_brief_artifact
 from briefalpha_api.portfolio.models import PortfolioPosition
@@ -74,6 +75,7 @@ async def run_pipeline(
 
     freeze_at = datetime.now(timezone.utc)
     ev = stages.normalize(brief_id, raw_items)
+    ev.extend(await _load_research_evidence(brief_id))
     ev = stages.entity_linking(ev, universe.ticker_set())
     ev = stages.dedupe(ev)
     ev = stages.base_scoring(ev, brief_freeze_at=freeze_at)
@@ -174,11 +176,34 @@ async def run_pipeline(
         ),
     )
 
+    stage_a_struct = stage_a_resp.structured
+    stage_b_struct = stage_b_resp.structured
+    if stage_a_resp.provider == "conservative" or not (stage_a_struct or {}).get(
+        "base_case_headline"
+    ):
+        stage_a_struct = _fallback_stage_a_from_evidence(selected)
+    if stage_b_resp.provider == "conservative" or not (stage_b_struct or {}).get("judgements"):
+        stage_b_struct = _fallback_stage_b_from_evidence(
+            selected,
+            no_direct_portfolio_link=no_direct_portfolio_link,
+            last_failure=(stage_b_struct or {}).get("last_failure"),
+        )
+
+    # `call_text_llm` reverses aliases in Stage B output so the user-facing
+    # artifact can show real names. Before passing those judgements into
+    # Stage C, scrub them back to aliases; otherwise Stage C's input scanner
+    # correctly rejects real tickers such as "MSFT".
+    stage_b_judgements_for_prompt = scrub_tree(
+        (stage_b_struct or {}).get("judgements", []),
+        dictionary=sensitive_dict,
+        ctx=ctx,
+    )
+
     stage_c_req = build_request(
         scope="stage_c",
         aliased_evidence=aliased,
         extra_payload={
-            "judgements_json": (stage_b_resp.structured or {}).get("judgements", []),
+            "judgements_json": stage_b_judgements_for_prompt,
             "aliased_evidence_json": aliased_payload,
         },
     )
@@ -211,8 +236,8 @@ async def run_pipeline(
         "brief_date_hkt": brief_id,
         "no_direct_portfolio_link": no_direct_portfolio_link,
         "conservative": conservative,
-        "stage_a": stage_a_resp.structured,
-        "stage_b": stage_b_resp.structured,
+        "stage_a": stage_a_struct,
+        "stage_b": stage_b_struct,
         "stage_c": stage_c_resp.structured,
         "evidence_pool_full": [_evidence_dict(e) for e in ev],
         "selected_evidence_for_llm": [_evidence_dict(e) for e in selected],
@@ -231,6 +256,167 @@ def _conservative_output(brief_id: str, no_direct_portfolio_link: bool) -> dict[
         "evidence_pool_full": [],
         "selected_evidence_for_llm": [],
     }
+
+
+def _fallback_stage_a_from_evidence(selected: list[stages.Evidence]) -> dict[str, Any]:
+    cited = [e.evidence_id for e in selected[:2]]
+    top = selected[0] if selected else None
+    headline = "保守模式：等待更多可验证证据"
+    summary = "LLM 输出未通过校验，系统基于已筛选证据生成保守摘要，建议人工复核后使用。"
+    if top is not None:
+        headline = f"保守模式：{_truncate(top.title, 42)}"
+        summary = _truncate(top.excerpt or top.title, 180)
+    return {
+        "base_case_headline": headline,
+        "summary": summary,
+        "cited_evidence_ids": cited,
+    }
+
+
+def _fallback_stage_b_from_evidence(
+    selected: list[stages.Evidence],
+    *,
+    no_direct_portfolio_link: bool,
+    last_failure: str | None = None,
+) -> dict[str, Any]:
+    """Conservative Stage B output when the LLM call collapses.
+
+    Anchors one judgement per available source tier (news / official /
+    research / market) so the UI surfaces multi-source evidence even when
+    the model is offline. The original implementation cited `selected[:2]`,
+    which under live data was always two yfinance market quotes (the
+    highest-scoring tier) and hid every news/official/research item that
+    the pipeline had spent work fetching and selecting.
+
+    Each fallback judgement carries an explicit `review` dict whose `note`
+    field tells the user *why* the LLM was rejected and *which* evidence
+    we used to anchor the placeholder. Without this, the review modal
+    showed an empty "数据缺口或质量问题" with no actionable detail.
+    """
+    if not selected:
+        return {"judgements": []}
+
+    by_tier: dict[str, list[stages.Evidence]] = {}
+    for ev in selected:
+        by_tier.setdefault(ev.source_tier, []).append(ev)
+
+    # Tier order favors human-readable narrative tiers over price ticks so
+    # the first fallback judgement is news/official rather than yfinance.
+    tier_priority = ["news", "official", "research", "market"]
+    primaries: list[stages.Evidence] = []
+    for tier in tier_priority:
+        bucket = by_tier.get(tier)
+        if bucket:
+            primaries.append(bucket[0])
+        if len(primaries) >= 3:
+            break
+    if not primaries:
+        primaries = [selected[0]]
+
+    failure_summary = _summarize_failure(last_failure)
+    review_reason = _failure_to_review_reason(last_failure)
+
+    judgements: list[dict[str, Any]] = []
+    for rank, primary in enumerate(primaries, start=1):
+        # Each judgement must cite ≥ 2 evidences (Stage B citation rule).
+        # Prefer a supporting evidence from a *different* tier than the
+        # primary so the cited card on the UI shows mixed sources.
+        supporting = next(
+            (e for e in selected if e.evidence_id != primary.evidence_id and e.source_tier != primary.source_tier),
+            None,
+        )
+        if supporting is None:
+            supporting = next(
+                (e for e in selected if e.evidence_id != primary.evidence_id),
+                primary,
+            )
+        cited = list(dict.fromkeys([primary.evidence_id, supporting.evidence_id]))
+        tickers = ", ".join(primary.detected_tickers[:3]) or "相关资产"
+        cited_titles = " / ".join(
+            f"{e.source_name}：{_truncate(e.title, 30)}"
+            for e in (primary, supporting)
+            if e.evidence_id in cited
+        )
+        note = (
+            f"AI 未生成此条研判（{failure_summary}）。"
+            f"系统以最高分 {primary.source_tier} evidence 拼出占位条目供你定位"
+            f"原始来源（{cited_titles}）；这条本身不是 AI 推理结果。"
+        )
+        judgements.append(
+            {
+                "rank": rank,
+                "level": "watch",
+                "title": f"保守复核：{_truncate(primary.title, 46)}",
+                "reasoning_chain": {
+                    "observed": _truncate(primary.excerpt or primary.title, 160),
+                    "portfolio_exposure": (
+                        "仅展示资产类别层面的关联，未直接披露组合权重。"
+                        if no_direct_portfolio_link
+                        else f"相关标的：{tickers}"
+                    ),
+                    "inference": "LLM 输出未通过数字或引用校验，当前结论按保守模式处理。",
+                    "conclusion": "进入关注列表，待数据源恢复或人工复核后再提升置信度。",
+                },
+                "cited_evidence_ids": cited,
+                "no_direct_portfolio_link": no_direct_portfolio_link,
+                "requires_review": True,
+                "review": {
+                    "reason": review_reason,
+                    "note": note,
+                    "status": "open",
+                    "reviewed_at": None,
+                    "kind": "fallback",
+                },
+            }
+        )
+
+    return {"judgements": judgements}
+
+
+def _summarize_failure(last_failure: str | None) -> str:
+    """Translate a wrapper failure code into a short human-readable phrase
+    for the review note. Keep it short — the modal already shows the
+    `reason` chip; this is the supporting one-liner."""
+    if not last_failure:
+        return "Stage B 全部 retry 失败"
+    if last_failure.startswith("accuracy:numbers"):
+        return "Stage B 输出含 cited evidence 中找不到的带单位数字，3 次 retry 都被拒"
+    if last_failure.startswith("accuracy:citations"):
+        return "Stage B 输出引用了不在 evidence pool 的 id"
+    if last_failure.startswith("accuracy:polarity"):
+        return "Stage B 输出方向与 excerpt 矛盾"
+    if last_failure.startswith("accuracy:time_window"):
+        return "Stage B 引用了时间窗口外的 evidence"
+    if last_failure.startswith("accuracy:quote_span"):
+        return "Stage B 输出 quote_span 校验失败"
+    if last_failure.startswith("sensitive_output"):
+        return "Stage B 输出触发敏感词扫描"
+    if last_failure.startswith("provider_error"):
+        return "Stage B LLM 提供方调用失败"
+    return f"Stage B 失败：{last_failure[:80]}"
+
+
+def _failure_to_review_reason(last_failure: str | None) -> str:
+    """Pick the closest existing reason taxonomy slot for the failure.
+    The frontend's `ReviewMeta.reason` enum is fixed; we map onto it
+    rather than introducing a new value (which would require coordinated
+    UI label changes)."""
+    if not last_failure:
+        return "data_gap"
+    if last_failure.startswith("accuracy:numbers") or last_failure.startswith("accuracy:polarity"):
+        # Closest semantic match — the LLM and the source disagreed on
+        # quantitative facts.
+        return "source_conflict"
+    if last_failure.startswith("accuracy:time_window"):
+        return "threshold_breach"
+    return "data_gap"
+
+
+def _truncate(value: str, max_chars: int) -> str:
+    text = " ".join((value or "").split())
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 1] + "…"
 
 
 def _build_pool_metadata(selected: list[stages.Evidence]) -> dict[str, Any]:
@@ -307,6 +493,31 @@ def _make_validator(
             for cid in cited_ids
             if cid in excerpt_aliased_by_id
         ) or "\n".join(excerpt_aliased_by_id.values())
+
+        # News tier expansion: when the LLM cites at least one news evidence,
+        # treat the entire selected news pool as supporting context for the
+        # numbers check. News excerpts are inherently qualitative — a Stage B
+        # judgement that anchors on a news headline shouldn't be punished for
+        # mentioning a number that lives in a non-cited news item from the
+        # same brief. This matters because the original strict rule pushed
+        # the LLM into self-censoring news entirely (see audit log 2026-04-27),
+        # leaving every fallback judgement citing only yfinance + research.
+        # Non-news cites stay as strict as before — the expansion only adds
+        # context, never removes it.
+        cited_set = set(cited_ids)
+        news_ids_in_pool = {
+            eid
+            for eid, entry in (pool_metadata or {}).items()
+            if getattr(entry, "source_tier", None) == "news"
+        }
+        if cited_set & news_ids_in_pool:
+            extra_news = "\n".join(
+                excerpt_aliased_by_id[eid]
+                for eid in news_ids_in_pool - cited_set
+                if eid in excerpt_aliased_by_id
+            )
+            if extra_news:
+                excerpt_text = excerpt_text + "\n" + extra_news
 
         result = validate_response(
             structured=structured,
@@ -422,12 +633,34 @@ async def _persist_evidence_pool(brief_id: str, evidence_pool: list[dict[str, An
     the UI can say "96 条原文" while the drawer and QA see an empty database.
     """
     async with SessionLocal() as session:
-        await session.execute(delete(Evidence).where(Evidence.brief_id == brief_id))
         await session.execute(
-            text("DELETE FROM evidence_fts WHERE brief_id = :brief_id"),
+            delete(Evidence)
+            .where(Evidence.brief_id == brief_id)
+            .where(Evidence.source_tier != "research")
+        )
+        await session.execute(
+            text(
+                "DELETE FROM evidence_fts "
+                "WHERE brief_id = :brief_id AND source_tier != 'research'"
+            ),
             {"brief_id": brief_id},
         )
         for ev in evidence_pool:
+            if ev.get("source_tier") == "research":
+                existing = await session.get(Evidence, ev["evidence_id"])
+                if existing is not None:
+                    existing.base_score = float(ev.get("base_score") or existing.base_score or 0.0)
+                    existing.final_impact_score = float(
+                        ev.get("final_impact_score") or existing.final_impact_score or 0.0
+                    )
+                    existing.selected_for_llm = bool(ev.get("selected_for_llm"))
+                    existing.conflict = bool(ev.get("conflict"))
+                    existing.requires_review = bool(ev.get("requires_review"))
+                    existing.exposure_bucket = ev.get("exposure_bucket") or existing.exposure_bucket
+                    existing.score_breakdown = dict(
+                        ev.get("score_breakdown") or existing.score_breakdown or {}
+                    )
+                continue
             published_at = _parse_iso_datetime(ev.get("published_at"))
             fetched_at = _parse_iso_datetime(ev.get("fetched_at")) or datetime.now(
                 timezone.utc
@@ -470,6 +703,115 @@ async def _persist_evidence_pool(brief_id: str, evidence_pool: list[dict[str, An
                 source_tier=row.source_tier,
             )
         await session.commit()
+
+
+async def _load_research_evidence(brief_id: str) -> list[stages.Evidence]:
+    """Bring already parsed research chunks into the next brief run.
+
+    Upload parsing persists research rows before the user asks to regenerate
+    the brief. The pipeline then treats those rows as first-class evidence
+    instead of relying on a side table that the generation pass cannot see.
+    """
+    await _backfill_research_evidence_rows(brief_id)
+    async with SessionLocal() as session:
+        rows = (
+            await session.execute(
+                select(Evidence)
+                .where(Evidence.brief_id == brief_id)
+                .where(Evidence.source_tier == "research")
+            )
+        ).scalars().all()
+    return [
+        stages.Evidence(
+            evidence_id=row.evidence_id,
+            source_tier=row.source_tier,
+            source_name=(row.score_breakdown or {}).get("source_name") or "research",
+            source_reliability=row.source_reliability,
+            title=row.title,
+            excerpt=row.excerpt,
+            quote_span=None,
+            detected_tickers=list(row.detected_tickers or []),
+            chunk_type=row.chunk_type,
+            asset_class=row.asset_class,
+            exposure_bucket=row.exposure_bucket,
+            published_at=row.published_at,
+            fetched_at=row.fetched_at,
+            base_score=row.base_score,
+            final_impact_score=row.final_impact_score,
+            score_breakdown=dict(row.score_breakdown or {}),
+            selected_for_llm=False,
+            conflict=bool(row.conflict),
+            requires_review=bool(row.requires_review),
+            supplementary_sources=list(row.supplementary_sources or []),
+            raw_source_url=row.raw_source_url,
+        )
+        for row in rows
+    ]
+
+
+async def _backfill_research_evidence_rows(brief_id: str) -> int:
+    """Repair parsed research chunks that predate evidence persistence.
+
+    Some local/dev runs can have `research_chunks` rows with an `evidence_id`
+    but no matching `evidence` row (for example after code changed between
+    parsing and regenerating). Without this bridge, the parse report says OK
+    while the brief pipeline never sees the uploaded research.
+    """
+    written = 0
+    async with SessionLocal() as session:
+        chunks = (
+            await session.execute(
+                select(ResearchChunk).where(ResearchChunk.brief_id == brief_id)
+            )
+        ).scalars().all()
+        now = datetime.now(timezone.utc)
+        for ch in chunks:
+            if not ch.evidence_id:
+                continue
+            existing = await session.get(Evidence, ch.evidence_id)
+            if existing is not None:
+                continue
+            title = ch.heading or f"Research upload · p{ch.page}"
+            row = Evidence(
+                evidence_id=ch.evidence_id,
+                brief_id=brief_id,
+                source_tier="research",
+                source_reliability=0.5,
+                title=title,
+                excerpt=ch.content,
+                quote_span=None,
+                detected_tickers=list(ch.detected_tickers or []),
+                chunk_type=ch.chunk_type,
+                asset_class=None,
+                exposure_bucket=None,
+                published_at=now,
+                fetched_at=now,
+                base_score=0.4,
+                final_impact_score=0.4,
+                score_breakdown={"source_name": "research", "reliability": 0.5},
+                selected_for_llm=False,
+                conflict=False,
+                requires_review=False,
+                supplementary_sources=[
+                    {"source_name": "research", "url": f"research://{ch.file_id}"}
+                ],
+                raw_source_url=f"research://{ch.file_id}#p{ch.page}",
+            )
+            session.add(row)
+            await index_evidence(
+                session,
+                evidence_id=row.evidence_id,
+                brief_id=brief_id,
+                title=row.title,
+                excerpt=row.excerpt,
+                detected_tickers=row.detected_tickers,
+                chunk_type=row.chunk_type,
+                source_tier=row.source_tier,
+            )
+            written += 1
+        if written:
+            await session.commit()
+    return written
 
 
 def _parse_iso_datetime(value: Any) -> datetime | None:

@@ -8,6 +8,7 @@ from .persistence import (  # noqa: F401
     create_research_job,
     delete_job_for_user,
     get_job_for_user,
+    list_jobs_for_user,
     mark_status,
     persist_chunks_and_evidence,
 )

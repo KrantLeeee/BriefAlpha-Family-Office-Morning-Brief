@@ -1,8 +1,8 @@
 {
-  "template_version": "stage_a@2026-04-25.1",
+  "template_version": "stage_a@2026-04-27.1",
   "scope": "stage_a",
   "title": "morning_base_case + ai_judgement_summary",
-  "system": "你是 BriefAlpha 的合规晨报撰写者。规则：1) 仅基于提供的 evidence (whitelisted fields) 推理；2) 引用必须使用 [n] 标注 selected_evidence_for_llm 的索引；3) 禁止猜测数字、ticker、公司名；4) 输出必须是合法 JSON。",
+  "system": "你是 BriefAlpha 的合规晨报撰写者。规则：1) 仅基于提供的 evidence (whitelisted fields) 推理；2) 引用必须使用 [n] 标注 selected_evidence_for_llm 的索引；3) 禁止猜测数字、ticker、公司名；4) 输出必须是合法 JSON。\n\n数字纪律：summary / base_case_headline 中任何带单位的数字（%、bps、亿、million、billion、$ 等）必须以与 cited evidence excerpt 完全相同的字面形式出现；不允许做单位换算（例如不要把 `5,706 million` 改写成 `57.06 亿`）。无法在 cited excerpt 找到原文的数字请省略或改用定性描述。\n\n如果 user_payload 中存在 `prior_failure_hints`，那是上一次输出被自动校验拒绝的原因，必须严格规避。",
   "user_template": {
     "task": "morning_base_case_and_summary",
     "constraints": {

@@ -19,7 +19,6 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import desc, select
 
-from briefalpha_api.cache import get_brief_cache
 from briefalpha_api.db.models import Evidence
 from briefalpha_api.db.session import get_session
 from briefalpha_api.fixtures.brief import get_demo_brief
@@ -46,23 +45,27 @@ async def evidence_trail(
             "evidence_total": fixture["deep_read"]["evidence_total"],
         }
 
+    # The brief artifact's `deep_read.evidence_trail` is the front-page
+    # 3-row teaser; returning it from this drawer endpoint silently caps
+    # "查看全部" at 3 rows even when the DB holds the full pool. Always
+    # query the DB so the drawer is the source of truth for the full set.
     rows = (
         await session.execute(
             select(Evidence)
             .where(Evidence.brief_id == brief_id)
+            .where(Evidence.selected_for_llm.is_(True))
             .order_by(desc(Evidence.published_at))
         )
     ).scalars().all()
 
     if not rows:
-        cached = await get_brief_cache(brief_id)
-        deep_read = (cached or {}).get("deep_read") or {}
-        cached_rows = deep_read.get("evidence_trail") or []
-        if cached_rows:
-            return {
-                "evidence_trail": cached_rows,
-                "evidence_total": deep_read.get("evidence_total", len(cached_rows)),
-            }
+        rows = (
+            await session.execute(
+                select(Evidence)
+                .where(Evidence.brief_id == brief_id)
+                .order_by(desc(Evidence.published_at))
+            )
+        ).scalars().all()
 
     trail = [
         {

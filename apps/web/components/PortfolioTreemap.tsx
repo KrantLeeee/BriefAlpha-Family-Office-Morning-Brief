@@ -42,6 +42,7 @@ function tileLabel(t: PortfolioTile): string {
  */
 function Tile({ tile }: { tile: PortfolioTile }) {
   const isFirstRow = tile.row === 0;
+  const isNarrow = tile.col_span < 92;
   const top = isFirstRow ? 0 : ROW0_HEIGHT;
   const height = isFirstRow ? ROW0_HEIGHT : ROW1_HEIGHT;
   const right = tile.col_start + tile.col_span;
@@ -60,7 +61,7 @@ function Tile({ tile }: { tile: PortfolioTile }) {
     <div
       role="img"
       aria-label={`${tileLabel(tile)} 占比 ${tile.weight_pct}，隔夜 ${tile.change_pct}`}
-      className={`${tileColorClass(tile)} ${radius} absolute flex flex-col justify-end p-[10px]`}
+      className={`${tileColorClass(tile)} ${radius} absolute flex flex-col justify-end overflow-hidden p-[10px]`}
       style={{
         left: `${tile.col_start}px`,
         top: `${top}px`,
@@ -68,13 +69,20 @@ function Tile({ tile }: { tile: PortfolioTile }) {
         height: `${height}px`,
       }}
     >
-      <div className="flex items-baseline gap-[6px] font-mono text-[11px] font-medium leading-tight">
-        <span>{tileLabel(tile)}</span>
-        <span className="opacity-80">{tile.weight_pct}</span>
+      <div
+        className={[
+          "min-w-0 font-mono font-medium leading-tight",
+          isNarrow
+            ? "flex flex-col gap-[1px] text-[10px]"
+            : "flex items-baseline gap-[6px] text-[11px]",
+        ].join(" ")}
+      >
+        <span className="truncate">{tileLabel(tile)}</span>
+        <span className="truncate opacity-80">{tile.weight_pct}</span>
       </div>
-      <div className="mt-[2px] flex items-baseline gap-[4px] font-mono text-[10px]">
+      <div className="mt-[2px] flex min-w-0 items-baseline gap-[4px] font-mono text-[10px]">
         <TrendIcon trend={tile.trend} className="!text-current text-[10px]" />
-        <span>{tile.change_pct}</span>
+        <span className="truncate">{tile.change_pct}</span>
       </div>
     </div>
   );

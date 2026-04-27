@@ -93,6 +93,9 @@ async def test_main_pipeline_invokes_accuracy_validator(monkeypatch) -> None:
         "Check `pipeline.run.run_pipeline` is passing `accuracy_validate` to "
         "every `call_text_llm`."
     )
+    assert "等待 LLM 接入" not in artifact["base_case"]["headline"]
+    assert artifact["judgements"], "conservative fallback should still produce a reviewable judgement"
+    assert artifact["judgements"][0]["requires_review"] is True
 
 
 @pytest.mark.asyncio

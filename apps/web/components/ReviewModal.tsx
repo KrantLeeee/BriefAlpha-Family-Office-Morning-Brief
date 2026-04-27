@@ -50,6 +50,7 @@ export function ReviewModal() {
 
   const review = judgement.review;
   const isReviewed = review?.status === "reviewed";
+  const isFallback = review?.kind === "fallback";
 
   const submit = (nextStatus: "open" | "reviewed") => {
     startTransition(async () => {
@@ -89,7 +90,8 @@ export function ReviewModal() {
       >
         <div className="flex items-start justify-between gap-3">
           <span className="font-mono text-[11px] text-orange-600">
-            研判 {String(judgement.rank).padStart(2, "0")} · 复核详情
+            研判 {String(judgement.rank).padStart(2, "0")} ·{" "}
+            {isFallback ? "AI 未生成 · 系统占位" : "复核详情"}
           </span>
           <button
             type="button"
@@ -151,7 +153,7 @@ export function ReviewModal() {
                   disabled={pending}
                   className="rounded-chip border border-line bg-canvas px-3 py-[6px] font-mono text-[11px] text-ink-700 hover:bg-warningWash disabled:opacity-50"
                 >
-                  {pending ? "标记中…" : "标记为待审"}
+                  {pending ? "标记中…" : isFallback ? "重新标记为占位" : "标记为待审"}
                 </button>
               ) : (
                 <button
@@ -160,7 +162,11 @@ export function ReviewModal() {
                   disabled={pending}
                   className="rounded-chip bg-orange-600 px-3 py-[6px] font-mono text-[11px] font-medium text-canvas hover:bg-orange-700 disabled:opacity-50"
                 >
-                  {pending ? "标记中…" : "我已审阅"}
+                  {pending
+                    ? "标记中…"
+                    : isFallback
+                      ? "我知晓此为系统占位"
+                      : "我已审阅"}
                 </button>
               )}
             </div>

@@ -71,7 +71,7 @@ class OfficialAdapter(IngestionAdapter):
                     break
                 cik = cik_for(tk.ticker)
                 if not cik:
-                    log.warning("sec_edgar: no CIK for ticker %s; skipping", tk.ticker)
+                    log.info("sec_edgar: no CIK for ticker %s; skipping", tk.ticker)
                     continue
 
                 url = _SEC_EDGAR_URL.format(cik=cik)
@@ -80,7 +80,7 @@ class OfficialAdapter(IngestionAdapter):
                     resp.raise_for_status()
                     body = resp.text
                 except httpx.HTTPError as exc:
-                    log.warning("sec_edgar fetch failed for %s (CIK %s): %s", tk.ticker, cik, exc)
+                    log.warning("sec_edgar fetch failed for %s (CIK %s): %r", tk.ticker, cik, exc)
                     await asyncio.sleep(_SEC_RATE_LIMIT_SECONDS)
                     continue
 
@@ -140,8 +140,14 @@ class OfficialAdapter(IngestionAdapter):
                     resp = await client.get(url)
                     resp.raise_for_status()
                     body = resp.text
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code == 404:
+                        log.info("hkex rss not available for %s (%s); skipping", tk.ticker, code)
+                    else:
+                        log.warning("hkex fetch failed for %s (%s): %r", tk.ticker, code, exc)
+                    continue
                 except httpx.HTTPError as exc:
-                    log.warning("hkex fetch failed for %s (%s): %s", tk.ticker, code, exc)
+                    log.warning("hkex fetch failed for %s (%s): %r", tk.ticker, code, exc)
                     continue
 
                 try:

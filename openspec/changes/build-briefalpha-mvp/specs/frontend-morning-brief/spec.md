@@ -109,7 +109,7 @@ drawer SHALL 由 judgement 行或 base_case 的 `[n]` 触发；右侧滑入 200m
 
 ### Requirement: Local QA 输入
 
-每条 judgement / evidence 行 SHALL 提供最小追问入口；drawer 内提供增强 local_qa；输入空 / > 500 字符 MUST 禁用发送；超时 20 秒。同 scope 下 SHALL 保留 3 轮上下文。回答渲染后被引用的 evidence 高亮 2 秒。
+每条 judgement / evidence 行 SHALL 提供最小追问入口；drawer 内提供增强 local_qa。judgement drawer 追问的默认上下文 SHALL 是当前 drawer 展示的全部 evidence，而非用户问题关键词检索结果；输入空 / > 500 字符 MUST 禁用发送；超时 20 秒。同 scope 下 SHALL 保留 3 轮上下文。回答渲染后被引用的 evidence 高亮 2 秒。
 
 #### Scenario: 输入限制
 

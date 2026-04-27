@@ -33,6 +33,7 @@ from briefalpha_api.llm.sensitive_scan import (
     scan_input_for_real_tickers,
     scan_output_for_sensitive_terms,
     scrub_output,
+    scrub_tree,
 )
 from briefalpha_api.settings import get_settings
 
@@ -41,6 +42,68 @@ log = logging.getLogger("briefalpha.llm")
 MAX_RETRY_TEXT = 3
 MAX_RETRY_QA = 1
 MAX_RETRY_VISION = 1
+
+# Cap how many prior-failure hints we feed back to the model in a single
+# retry. Without a cap, a long-running validator failure loop would balloon
+# the prompt with each attempt; the model only needs the most recent
+# couple of failure modes to course-correct.
+_MAX_RETRY_HINTS = 3
+
+
+def _failure_hint(failure: str) -> str | None:
+    """Translate a validator failure code into a remediation instruction the
+    LLM can act on next attempt. Returns `None` when the failure isn't worth
+    surfacing (e.g., transient provider errors that say nothing about the
+    answer's content)."""
+    if failure.startswith("accuracy:numbers:"):
+        return (
+            "上一次回答因为以下带单位数字未出现在被引用 evidence 的 excerpt 中而被拒绝："
+            f"{failure}。请删除或替换这些数字，或换用 cited evidence excerpt 中已有的数字；"
+            "禁止做单位换算（例如不要把 `5,706 million` 改写成 `57.06 亿`）。"
+        )
+    if failure.startswith("accuracy:citations:"):
+        return (
+            f"上一次回答因为引用规则失败：{failure}。"
+            "每条 judgement 必须引用至少 2 个本次 evidence pool 内的 evidence_id；"
+            "不得编造新的 id。"
+        )
+    if failure.startswith("accuracy:polarity"):
+        return (
+            f"上一次回答的方向描述与 excerpt 矛盾：{failure}。"
+            "请按 excerpt 中的方向（上调/下调、beat/miss 等）重写。"
+        )
+    if failure.startswith("accuracy:time_window"):
+        return (
+            f"上一次回答引用了时间窗口外的 evidence：{failure}。"
+            "请改用窗口内（与 freeze_at 对齐）的 evidence。"
+        )
+    if failure.startswith("accuracy:quote_span"):
+        return (
+            f"上一次回答的 quote_span 校验失败：{failure}。"
+            "如不确定具体引用片段，请省略 quote_span 字段。"
+        )
+    if failure.startswith("sensitive_output:"):
+        return (
+            f"上一次回答包含禁词：{failure}。请避免出现这些词，可以使用通用代称替换。"
+        )
+    return None
+
+
+def _record_retry_hint(req: LlmRequest, failure: str) -> None:
+    """Append a remediation hint to the request payload so the next retry
+    sees what was wrong on the previous attempt.
+
+    The wrapper used to retry with the IDENTICAL prompt, which gave the
+    model no information to recover from a deterministic validator failure
+    — same prompt → same wrong answer × 3 → conservative fallback. Feeding
+    the failure reason back lets the model actually adapt.
+    """
+    hint = _failure_hint(failure)
+    if not hint:
+        return
+    hints = list(req.user_payload.get("prior_failure_hints", []))
+    hints.append(hint)
+    req.user_payload["prior_failure_hints"] = hints[-_MAX_RETRY_HINTS:]
 
 
 def _request_hash(req: LlmRequest) -> str:
@@ -92,16 +155,7 @@ def _scrub_sensitive_in_tree(
     dictionary: Any,
     ctx: AliasContext | None,
 ) -> Any:
-    if isinstance(node, str):
-        return scrub_output(node, dictionary=dictionary, ctx=ctx)
-    if isinstance(node, dict):
-        return {
-            k: _scrub_sensitive_in_tree(v, dictionary=dictionary, ctx=ctx)
-            for k, v in node.items()
-        }
-    if isinstance(node, list):
-        return [_scrub_sensitive_in_tree(item, dictionary=dictionary, ctx=ctx) for item in node]
-    return node
+    return scrub_tree(node, dictionary=dictionary, ctx=ctx)
 
 
 def _response_hash(resp: LlmResponse) -> str:
@@ -195,7 +249,8 @@ async def call_text_llm(
             if report.matched_terms:
                 # One retry, then scrub
                 if attempt + 1 < _retry_budget(req.scope):
-                    failure = "sensitive_output:retry"
+                    failure = f"sensitive_output:{report.matched_terms[:3]}"
+                    _record_retry_hint(req, failure)
                     continue
                 resp = resp.model_copy(
                     update={
@@ -223,6 +278,7 @@ async def call_text_llm(
             if not ok:
                 failure = f"accuracy:{reason}"
                 if attempt + 1 < _retry_budget(req.scope):
+                    _record_retry_hint(req, failure)
                     continue
                 # All retries exhausted — fall through to conservative
                 last_resp = resp
@@ -263,7 +319,7 @@ async def call_text_llm(
         failure_state=failure or "all_attempts_failed",
         accuracy_validation_passed=last_validation if accuracy_validate is not None else None,
     )
-    return conservative_fallback(req.scope)
+    return conservative_fallback(req.scope, last_failure=failure or "all_attempts_failed")
 
 
 async def call_vision_llm(
@@ -312,14 +368,22 @@ async def call_embedding(text: str) -> list[float]:
     return await providers.call_embedding_provider(text)
 
 
-def conservative_fallback(scope: str) -> LlmResponse:
+def conservative_fallback(scope: str, *, last_failure: str | None = None) -> LlmResponse:
+    """Returned when all retries collapse. The downstream pipeline reads
+    `structured["last_failure"]` to populate the review note shown to the
+    user, so the fallback isn't just an opaque "AI 没出判断" — the user
+    learns *which validator rule* (numbers / citations / sensitive output)
+    blocked the LLM."""
     msg = (
         "Today's brief was generated in conservative mode — evidence sufficiency "
         "or validator stability fell below threshold. Manual review recommended."
     )
+    structured: dict[str, Any] = {"conservative": True, "scope": scope}
+    if last_failure:
+        structured["last_failure"] = last_failure
     return LlmResponse(
         text=msg,
-        structured={"conservative": True, "scope": scope},
+        structured=structured,
         provider="conservative",
         model="conservative",
         template_version="conservative@1",

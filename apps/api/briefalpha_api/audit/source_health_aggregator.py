@@ -11,13 +11,13 @@ with a 30-minute TTL.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
 
 from briefalpha_api.cache import SOURCE_HEALTH_KEY, set_json
-from briefalpha_api.db.models import ResearchJob, SourceHealthHistory
+from briefalpha_api.db.models import Evidence, ResearchJob, SourceHealthHistory
 from briefalpha_api.db.session import SessionLocal
 
 log = logging.getLogger("briefalpha.audit.source_health")
@@ -28,8 +28,12 @@ SNAPSHOT_TTL_SECONDS = 30 * 60
 # Pretty Chinese labels (frontend renders these as-is in the table).
 _LABELS = {
     "yfinance": "行情",
+    "stooq": "行情",
     "google_news_rss": "新闻",
     "gdelt": "新闻",
+    "gdelt+google": "新闻",
+    "finnhub": "新闻",
+    "newsapi": "新闻",
     "sec_edgar": "官方公告",
     "hkex": "官方公告",
     "research": "研报",
@@ -42,7 +46,7 @@ def _label_for(source_name: str) -> str:
 
 async def aggregate_source_health() -> dict[str, Any]:
     """Compute the snapshot, persist to redis, return the snapshot dict."""
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=WINDOW_MINUTES)
+    cutoff = datetime.now(UTC) - timedelta(minutes=WINDOW_MINUTES)
     rows: list[dict[str, Any]] = []
     overall_status = "ok"
     async with SessionLocal() as s:
@@ -87,35 +91,58 @@ async def aggregate_source_health() -> dict[str, Any]:
                     }
                 )
 
-        # Active research uploads — anything not in a terminal state.
+        # Research uploads are not a third-party source, but the user needs to
+        # know whether parsed research is available for the next brief run.
+        # Active jobs take precedence in status; completed jobs/chunks remain
+        # visible instead of collapsing back to the misleading "no uploads".
         active_q = select(func.count()).select_from(ResearchJob).where(
             ResearchJob.status.in_(["queued", "parsing", "reanalyze_queued"])
         )
         active_count = (await s.execute(active_q)).scalar_one() or 0
+        ready_q = select(func.count()).select_from(ResearchJob).where(
+            ResearchJob.status == "ok"
+        )
+        ready_count = (await s.execute(ready_q)).scalar_one() or 0
+        chunk_q = select(func.count()).select_from(Evidence).where(
+            Evidence.source_tier == "research"
+        )
+        chunk_count = (await s.execute(chunk_q)).scalar_one() or 0
         rows.append(
             {
                 "name": "研报",
                 "source_name": "research",
                 "status": "active" if active_count > 0 else "ok",
-                "detail": (
-                    f"{active_count} uploads active"
-                    if active_count > 0
-                    else "no uploads"
+                "detail": _research_detail(
+                    active_count=active_count,
+                    ready_count=ready_count,
+                    chunk_count=chunk_count,
                 ),
-                "recorded_at": datetime.now(timezone.utc).isoformat(),
+                "recorded_at": datetime.now(UTC).isoformat(),
                 "is_demo": False,
             }
         )
 
     snapshot = {
-        "as_of_hkt": datetime.now(timezone.utc).strftime("%H:%M"),
+        "as_of_hkt": datetime.now(UTC).strftime("%H:%M"),
         "overall": overall_status,
         "rows": rows,
         "window_minutes": WINDOW_MINUTES,
-        "computed_at": datetime.now(timezone.utc).isoformat(),
+        "computed_at": datetime.now(UTC).isoformat(),
     }
     await set_json(SOURCE_HEALTH_KEY, snapshot, ttl_seconds=SNAPSHOT_TTL_SECONDS)
     log.info(
         "source_health snapshot: overall=%s rows=%d", overall_status, len(rows)
     )
     return snapshot
+
+
+def _research_detail(*, active_count: int, ready_count: int, chunk_count: int) -> str:
+    parts: list[str] = []
+    if active_count > 0:
+        parts.append(f"{active_count} uploads active")
+    if ready_count > 0:
+        if chunk_count > 0:
+            parts.append(f"{ready_count} uploads ready · {chunk_count} chunks")
+        else:
+            parts.append(f"{ready_count} uploads ready")
+    return " · ".join(parts) if parts else "no uploads"

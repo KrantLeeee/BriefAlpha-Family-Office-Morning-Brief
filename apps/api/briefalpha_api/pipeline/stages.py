@@ -18,6 +18,12 @@ from briefalpha_api.portfolio.models import BucketSummary
 
 TOP_K = 20
 
+# Per-tier floor used by `evidence_selection`. With many research uploads
+# loaded, research items tie just above news on `final_impact_score`
+# (materiality 0.85 vs 0.7), so a pure score sort starves news/official
+# completely. The floors guarantee the LLM prompt sees a multi-tier mix.
+TIER_FLOORS: dict[str, int] = {"news": 5, "official": 3, "market": 3}
+
 NEGATIVE_DIRECTION_RE = re.compile(r"下调|miss|下挫|不及预期|cut|减少", re.IGNORECASE)
 POSITIVE_DIRECTION_RE = re.compile(r"上调|beat|raise|上扬|超预期|增加", re.IGNORECASE)
 
@@ -165,6 +171,8 @@ def base_scoring(items: list[Evidence], *, brief_freeze_at: datetime) -> list[Ev
 def _recency_weight(published_at: datetime | None, freeze_at: datetime) -> float:
     if published_at is None:
         return 0.4
+    published_at = _as_utc_aware(published_at)
+    freeze_at = _as_utc_aware(freeze_at)
     age_hours = (freeze_at - published_at).total_seconds() / 3600
     if age_hours < 6:
         return 1.0
@@ -173,6 +181,18 @@ def _recency_weight(published_at: datetime | None, freeze_at: datetime) -> float
     if age_hours < 72:
         return 0.5
     return 0.3
+
+
+def _as_utc_aware(value: datetime) -> datetime:
+    """Normalize datetimes before arithmetic.
+
+    SQLite returns naive datetimes even when they were inserted as UTC-aware
+    values. Treat those stored values as UTC so scoring stays stable across
+    live ingestion rows and persisted research evidence.
+    """
+    if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _novelty_weight(ev: Evidence, seen: set[str]) -> float:
@@ -275,8 +295,38 @@ def _materiality(ev: Evidence) -> float:
 # ---------------------------------------------------------------------------
 
 
-def evidence_selection(items: list[Evidence], *, top_k: int = TOP_K) -> list[Evidence]:
+def evidence_selection(
+    items: list[Evidence],
+    *,
+    top_k: int = TOP_K,
+    tier_floors: dict[str, int] | None = None,
+) -> list[Evidence]:
+    if tier_floors is None:
+        tier_floors = TIER_FLOORS
     sorted_items = sorted(items, key=lambda e: e.final_impact_score, reverse=True)
-    for idx, ev in enumerate(sorted_items):
-        ev.selected_for_llm = idx < top_k
+
+    selected_ids: set[str] = set()
+    for tier, floor in tier_floors.items():
+        if floor <= 0:
+            continue
+        added = 0
+        for ev in sorted_items:
+            if added >= floor:
+                break
+            if ev.source_tier == tier and ev.evidence_id not in selected_ids:
+                selected_ids.add(ev.evidence_id)
+                added += 1
+
+    for ev in sorted_items:
+        if len(selected_ids) >= top_k:
+            break
+        selected_ids.add(ev.evidence_id)
+
+    if len(selected_ids) > top_k:
+        # Floors summed past top_k; keep highest-scoring among the reserved set.
+        ranked = [ev for ev in sorted_items if ev.evidence_id in selected_ids]
+        selected_ids = {ev.evidence_id for ev in ranked[:top_k]}
+
+    for ev in sorted_items:
+        ev.selected_for_llm = ev.evidence_id in selected_ids
     return sorted_items

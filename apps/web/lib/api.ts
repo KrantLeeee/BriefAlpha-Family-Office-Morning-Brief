@@ -1,14 +1,15 @@
-import type { Brief, ParseReport, QaResponse, SourceHealth } from "./types";
+import type { Brief, BriefRefreshStatus, ParseReport, QaResponse, ResearchFileSummary, SourceHealth } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
     cache: "no-store",
   });
   if (!res.ok) {
@@ -56,4 +57,30 @@ export async function uploadResearch(form: FormData): Promise<{ file_id: string;
 
 export async function getParseReport(fileId: string): Promise<ParseReport> {
   return fetchJson<ParseReport>(`/api/research/${fileId}/parse_report`);
+}
+
+export async function listResearch(): Promise<{ files: ResearchFileSummary[] }> {
+  return fetchJson<{ files: ResearchFileSummary[] }>("/api/research");
+}
+
+export async function reanalyzeResearch(fileId: string): Promise<{ file_id: string; status: string }> {
+  return fetchJson<{ file_id: string; status: string }>(`/api/research/${fileId}/reanalyze`, {
+    method: "POST",
+  });
+}
+
+export async function deleteResearch(fileId: string): Promise<{ file_id: string; status: string }> {
+  return fetchJson<{ file_id: string; status: string }>(`/api/research/${fileId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function updateTodayBrief(): Promise<{ status: string; brief_id: string; refreshed_at_hkt?: string }> {
+  return fetchJson<{ status: string; brief_id: string; refreshed_at_hkt?: string }>("/api/admin/data/refresh", {
+    method: "POST",
+  });
+}
+
+export async function getBriefRefreshStatus(): Promise<BriefRefreshStatus> {
+  return fetchJson<BriefRefreshStatus>("/api/admin/data/refresh/status");
 }

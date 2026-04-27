@@ -2,7 +2,6 @@ import { Footer } from "@/components/Footer";
 import { TopBar } from "@/components/TopBar";
 import { SummaryStrip } from "@/components/SummaryStrip";
 import { JudgementList } from "@/components/JudgementList";
-import { MacroPulseCollapsed } from "@/components/MacroPulseCollapsed";
 import { TodayPlaybook } from "@/components/TodayPlaybook";
 import { DeepRead } from "@/components/DeepRead";
 import { DrawerHost } from "@/components/DrawerHost";
@@ -41,12 +40,6 @@ export default async function HomePage() {
           />
 
           <JudgementList judgements={brief.judgements} />
-
-          <MacroPulseCollapsed
-            label={brief.macro_pulse_collapsed.label}
-            expandLabel={brief.macro_pulse_collapsed.expand_label}
-            items={brief.macro_pulse}
-          />
         </div>
       </section>
 

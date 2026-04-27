@@ -65,10 +65,10 @@ evidence_selection 阶段 SHALL 输出两个集合：(a) `selected_evidence_for_
 - **WHEN** pipeline 完成 stage_8
 - **THEN** `selected_evidence_for_llm` ≤ 20 条进入 LLM stage_b；`evidence_pool_full` 完整保留全部去重后 evidence 供 QA / drawer / 检索使用
 
-#### Scenario: drawer 扩展查询命中未选 evidence
+#### Scenario: drawer local QA 使用当前研判 evidence
 
-- **WHEN** 用户在 drawer 中通过 local_qa 追问命中一条未进入 selected 的 evidence
-- **THEN** evidence-search 在 evidence_pool_full 中找到并返回，QA 流程仍按 anonymization → wrapper 路径走
+- **WHEN** 用户在 drawer 中通过 local_qa 追问某条 judgement
+- **THEN** QA 使用该 judgement drawer 展示的全部 evidence（无论是否进入 selected_evidence_for_llm），流程仍按 hydrate raw evidence → anonymization → wrapper 路径走
 
 ### Requirement: 三阶段 LLM 生成
 

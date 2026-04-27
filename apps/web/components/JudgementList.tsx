@@ -31,10 +31,16 @@ function renderLevelLabel(j: Judgement, openReviewModal: (id: string) => void) {
         e.stopPropagation();
         openReviewModal(j.id);
       }}
+      // Permanent dotted underline + cursor-pointer so the chip reads as
+      // an interactive control at first glance — without it users can't
+      // tell that "关注 · ⚠ 待复核" is the click target for the review
+      // modal (the entire judgement row also opens the evidence drawer,
+      // so a flat label collapses into the row's affordance).
       className={[
-        "font-sans text-[11px] font-medium underline-offset-2 hover:underline",
+        "cursor-pointer font-sans text-[11px] font-medium underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-1 focus-visible:ring-orange-600",
         isReviewed ? "text-ink-500" : "text-orange-600",
       ].join(" ")}
+      title="点击查看复核详情"
       aria-label={`复核详情 ${j.title}`}
     >
       {label}
