@@ -105,9 +105,16 @@ keyword answers labeled "示例回答".
 ### Switching to live
 
 ```bash
+# 1. Edit packages/config/data_sources.yml and replace
+#      sec.user_agent: "BriefAlpha demo <ops@example.com>"
+#    with a real contact, e.g.
+#      sec.user_agent: "MyApp/1.0 alice@mycompany.com"
+#    (SEC fair-use policy requires a real reachable email.)
+
+# 2. Configure the LLM provider key matching BRIEFALPHA_LLM_PROVIDER.
 export BRIEFALPHA_MODE=live
-export ANTHROPIC_API_KEY=sk-ant-...           # OR OPENAI_API_KEY
-export SEC_EDGAR_USER_AGENT="BriefAlpha/dev your.email@example.com"
+export ANTHROPIC_API_KEY=sk-ant-...   # if BRIEFALPHA_LLM_PROVIDER=anthropic
+# export OPENAI_API_KEY=sk-...        # if BRIEFALPHA_LLM_PROVIDER=openai
 make dev-api
 ```
 
@@ -117,14 +124,19 @@ fixture content as "live".
 
 #### Live preconditions (fail-fast checklist)
 
-- **At least one LLM provider key.** Either:
-  - `ANTHROPIC_API_KEY` env var, OR
-  - `OPENAI_API_KEY` env var, OR
-  - A non-placeholder value in `data/.secrets/llm_api_keys.json` (the
-    init script seeds `sk-ant-replace-me` etc. — those are detected as
-    placeholders and rejected).
-- **`SEC_EDGAR_USER_AGENT`** in the form `AppName/version
-  contact@example.com`. SEC's RSS feed requires it.
+- **A provider-specific LLM key matching `BRIEFALPHA_LLM_PROVIDER`.** Either:
+  - The matching env var (`ANTHROPIC_API_KEY` if provider is `anthropic`,
+    `OPENAI_API_KEY` if `openai`), OR
+  - A non-placeholder value in `data/.secrets/llm_api_keys.json` under the
+    matching provider key (the init script seeds `sk-ant-replace-me` etc. —
+    those are detected as placeholders and rejected).
+  - Note: setting only the *other* provider's key is not sufficient — the
+    runtime LLM wrapper only consults the configured provider, so an
+    Anthropic key with `BRIEFALPHA_LLM_PROVIDER=openai` would silently
+    degrade to the conservative stub.
+- **`sec.user_agent`** in `packages/config/data_sources.yml`, in the form
+  `AppName/version contact@yourdomain.com`. The default value contains
+  `example.com` and is rejected. SEC's RSS feed requires this header.
 
 The default ingestion adapters (yfinance, GDELT, Google News RSS, SEC
 EDGAR RSS, HKEX RSS) are key-less, so no other secrets are required for
