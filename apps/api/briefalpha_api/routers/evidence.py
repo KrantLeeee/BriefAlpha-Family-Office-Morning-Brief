@@ -19,9 +19,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import desc, select
 
+from briefalpha_api.cache import get_brief_cache
 from briefalpha_api.db.models import Evidence
 from briefalpha_api.db.session import get_session
 from briefalpha_api.fixtures.brief import get_demo_brief
+from briefalpha_api.pipeline.artifact import classify_link_kind, public_source_url
 
 router = APIRouter()
 
@@ -52,11 +54,23 @@ async def evidence_trail(
         )
     ).scalars().all()
 
+    if not rows:
+        cached = await get_brief_cache(brief_id)
+        deep_read = (cached or {}).get("deep_read") or {}
+        cached_rows = deep_read.get("evidence_trail") or []
+        if cached_rows:
+            return {
+                "evidence_trail": cached_rows,
+                "evidence_total": deep_read.get("evidence_total", len(cached_rows)),
+            }
+
     trail = [
         {
             "timestamp": row.published_at.isoformat() if row.published_at else "",
             "label": _format_label(row),
             "source_tier": row.source_tier,
+            "source_link": public_source_url(row.raw_source_url),
+            "link_kind": classify_link_kind(public_source_url(row.raw_source_url)),
         }
         for row in rows
     ]
@@ -70,7 +84,7 @@ def _format_label(ev: Evidence) -> str:
     The Evidence model has no ``source_name`` column, so we fall back
     to ``source_tier`` as the prefix and append the (truncated) title.
     """
-    name = ev.source_tier or ""
+    name = (ev.score_breakdown or {}).get("source_name") or ev.source_tier or ""
     title = (ev.title or "")[:40]
     if name and title:
         return f"{name} · {title}"

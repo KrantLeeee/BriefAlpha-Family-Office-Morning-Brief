@@ -9,6 +9,7 @@ interface Props {
 }
 
 export function ModeBanner({ system }: Props) {
+  const [showHint, setShowHint] = React.useState(false);
   // Hidden when live mode is healthy — no banner.
   if (system.mode === "live" && system.status === "ready") return null;
 
@@ -21,14 +22,17 @@ export function ModeBanner({ system }: Props) {
     >
       <span>{text}</span>
       {hint && (
-        <span
-          className="ml-3 cursor-help underline decoration-dotted underline-offset-2 hover:opacity-70"
+        <button
+          type="button"
+          className="ml-3 underline decoration-dotted underline-offset-2 hover:opacity-70"
+          onClick={() => setShowHint((v) => !v)}
+          aria-expanded={showHint}
           title={hint}
-          tabIndex={0}
         >
           如何切到真实管线 (?)
-        </span>
+        </button>
       )}
+      {hint && showHint && <span className="ml-3 text-ink-500">{hint}</span>}
     </div>
   );
 }

@@ -166,15 +166,23 @@ def _transform_sec(content: bytes) -> bytes:
 def _transform_hkex(content: bytes) -> bytes:
     """Transform HKEX ListOfSecurities.xlsx into `{"mappings": {ticker: code}}`.
 
-    The xlsx has a 5-digit numeric stock code in column A; we coerce
-    that into the canonical `"{lstripped}.HK"` ticker form (e.g. 00700 → 0700.HK).
+    The xlsx has a 5-digit numeric stock code in column A; we coerce that into
+    the canonical 4-digit-padded HK ticker (00700 → 0700.HK). 5-digit codes
+    (warrants/derivatives at 60000+) keep their natural width. The rest of the
+    codebase (portfolio fixtures, alias variants, treemap palettes) all use
+    the 4-digit form, so anything else here would silently miss lookups.
     """
     import io as _io
     import json as _json
 
     from openpyxl import load_workbook
 
-    wb = load_workbook(_io.BytesIO(content), read_only=True, data_only=True)
+    # NOTE: read_only=True is intentionally NOT used. HKEX's ListOfSecurities.xlsx
+    # ships an inaccurate worksheet `dimension` tag in its XML, and read_only mode
+    # honors that tag literally — it stops after ~5 rows even though the file
+    # actually contains ~17.8k. The full file is ~1.4 MB so the memory cost of
+    # loading non-streaming once a week is negligible.
+    wb = load_workbook(_io.BytesIO(content), data_only=True)
     ws = wb.active
     mappings: dict[str, str] = {}
     for row in ws.iter_rows(values_only=True):
@@ -187,8 +195,9 @@ def _transform_hkex(content: bytes) -> bytes:
         if not s.isdigit() or len(s) > 5:
             continue
         code = s.zfill(5)
-        ticker = f"{code.lstrip('0') or '0'}.HK"
-        mappings[ticker] = code
+        stripped = code.lstrip("0") or "0"
+        ticker_num = stripped if len(stripped) >= 4 else stripped.zfill(4)
+        mappings[f"{ticker_num}.HK"] = code
     return _json.dumps({"mappings": mappings}, ensure_ascii=False).encode("utf-8")
 
 

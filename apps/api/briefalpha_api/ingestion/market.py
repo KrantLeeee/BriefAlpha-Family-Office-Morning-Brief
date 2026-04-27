@@ -25,10 +25,13 @@ class MarketAdapter(IngestionAdapter):
             try:
                 tk = yfinance.Ticker(t.ticker)
                 fast = tk.fast_info
-                title = f"{t.ticker} 隔夜估算 {fast.last_price}"
+                last_price = _fmt_price(fast.last_price)
+                previous_close = _fmt_price(fast.previous_close)
+                day_high = _fmt_price(fast.day_high)
+                day_low = _fmt_price(fast.day_low)
                 excerpt = (
-                    f"{t.ticker} 上次收盘 {fast.previous_close}; "
-                    f"日内 {fast.day_high} / {fast.day_low}; "
+                    f"{t.ticker} 上次收盘 {previous_close}; "
+                    f"日内 {day_high} / {day_low}; "
                     f"成交量 {fast.last_volume}."
                 )
                 items.append(
@@ -36,7 +39,7 @@ class MarketAdapter(IngestionAdapter):
                         source_name="yfinance",
                         source_tier="market",
                         source_url=f"yfinance://{t.ticker}",
-                        title=title,
+                        title=f"{t.ticker} 隔夜估算 {last_price}",
                         excerpt=excerpt,
                         detected_tickers=[t.ticker],
                         asset_class=t.asset_class,
@@ -48,3 +51,10 @@ class MarketAdapter(IngestionAdapter):
                 # Per task 4.5 single-ticker failure must not poison the batch.
                 continue
         return items
+
+
+def _fmt_price(value) -> str:
+    try:
+        return f"{float(value):.2f}"
+    except (TypeError, ValueError):
+        return "n/a"

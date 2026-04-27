@@ -44,7 +44,18 @@ export function DeepRead({ deepRead, sourceHealth }: Props) {
             {deepRead.evidence_trail.map((row, idx) => (
               <div key={idx} className="flex gap-3 font-mono text-[11px] text-ink-500">
                 <span className="w-[120px] shrink-0">{row.timestamp}</span>
-                <span>{row.label} ↗</span>
+                {row.link_kind === "external" && row.source_link ? (
+                  <a
+                    href={row.source_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-w-0 truncate text-orange-600 hover:underline"
+                  >
+                    {formatLongDecimals(row.label)} ↗
+                  </a>
+                ) : (
+                  <span className="min-w-0 truncate">{formatLongDecimals(row.label)}</span>
+                )}
               </div>
             ))}
             <button
@@ -79,4 +90,11 @@ export function DeepRead({ deepRead, sourceHealth }: Props) {
       </div>
     </section>
   );
+}
+
+function formatLongDecimals(value: string): string {
+  return value.replace(/([+-]?\d+\.\d{3,})/g, (match) => {
+    const n = Number.parseFloat(match);
+    return Number.isFinite(n) ? n.toFixed(2) : match;
+  });
 }

@@ -60,8 +60,34 @@ const items: MacroPulseItem[] = [
   ];
   const judgements: Judgement[] = [];
   const html = renderToStaticMarkup(React.createElement(TodayPlaybook, { events, judgements }));
-  assert.ok(html.includes("09:30 HKT"), "event time visible");
+  assert.ok(html.includes("09:30 BJT"), "event time visible in Beijing time");
   assert.ok(!html.includes("查看 "), "no '查看 N 条依据' affordance when no related evidence");
+}
+
+// TodayPlaybook sorts events by Beijing time even if input order is late-first.
+{
+  const events: PlaybookEvent[] = [
+    {
+      time_hkt: "21:30",
+      relative_time_hkt: "晚间",
+      label: "us open",
+      detail: "d",
+      related_judgement_ids: [],
+      related_evidence_ids: [],
+      is_next: true,
+    },
+    {
+      time_hkt: "09:30",
+      relative_time_hkt: "上午",
+      label: "hk open",
+      detail: "d",
+      related_judgement_ids: [],
+      related_evidence_ids: [],
+      is_next: false,
+    },
+  ];
+  const html = renderToStaticMarkup(React.createElement(TodayPlaybook, { events, judgements: [] }));
+  assert.ok(html.indexOf("09:30 BJT") < html.indexOf("21:30 BJT"), "events sorted ascending");
 }
 
 // TodayPlaybook with related evidence: shows the toggle button
@@ -104,4 +130,4 @@ const items: MacroPulseItem[] = [
   assert.ok(!html.includes("Title"), "evidence body hidden when collapsed");
 }
 
-console.log("macro-playbook: 5 cases OK");
+console.log("macro-playbook: 6 cases OK");

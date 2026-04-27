@@ -35,3 +35,7 @@ def test_build_brief_artifact_emits_macro_pulse_field() -> None:
     # Pipeline-emitted artifacts should be empty until the indicator pipeline
     # is implemented; demo fixture supplies its own non-empty list.
     assert artifact["macro_pulse"] == []
+    # Honesty: the collapsed label must reflect the actual indicator count,
+    # not a hardcoded "8 项指标" lie. Earlier the label said 8 while the row
+    # list was always empty — a fixture-mode dishonesty visible to live users.
+    assert artifact["macro_pulse_collapsed"]["label"] == "宏观脉搏 · 暂未接入"

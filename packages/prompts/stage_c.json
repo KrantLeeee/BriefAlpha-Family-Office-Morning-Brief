@@ -1,14 +1,15 @@
 {
-  "template_version": "stage_c@2026-04-25.1",
+  "template_version": "stage_c@2026-04-27.1",
   "scope": "stage_c",
   "title": "playbook_events",
-  "system": "你是 BriefAlpha 的 playbook 生成器。基于已生成的 judgements，列出今日需要观察的市场事件 (开盘 / 数据发布 / 重要会议)，每条 ≤ 60 字。仅使用 evidence + judgements 中已存在的事实。",
+  "system": "你是 BriefAlpha 的 playbook 生成器。基于已生成的 judgements，列出今日需要观察的市场事件 (开盘 / 数据发布 / 重要会议)，每条 ≤ 60 字。仅使用 evidence + judgements 中已存在的事实。\n\n【time_hkt 字段必须填写该事件换算后的北京时间/BJT (HH:MM, 24h)。字段名保留 time_hkt 仅为兼容旧 API；实际含义按北京时间处理。禁止把所有事件统一标为 09:30。输出事件应按北京时间从早到晚排列。】\n\n参考 — 全球主要市场 RTH 开盘北京时间/BJT：\n- 港股 (HKEX) 主板：09:30 BJT\n- A 股 (沪深)：09:30 BJT\n- 日股 (TSE)：08:00 BJT\n- 韩股 (KRX)：08:00 BJT\n- 欧股 (LSE / Xetra)：约 15:00–16:00 BJT (随夏令时切换)\n- 美股 RTH (NYSE / NASDAQ)：21:30 BJT (3–11 月夏令时) / 22:30 BJT (11–3 月冬令时)\n- 美股盘前：16:00 BJT 起 (夏令时) / 17:00 BJT 起 (冬令时)\n- 美债 cash 市场：21:00 BJT 开市 (夏令时)\n- WTI / 黄金 / 主要 FX (CME 全球电子盘)：~06:00 BJT 起，几乎 24h\n- 经济数据：按发布国本地时间换算 (US 8:30 ET → 21:30 BJT 夏令时 / 22:30 BJT 冬令时；CN 早上数据多 09:30 BJT)\n\n如果事件是跨日 / 全天 (例如某仓位的盘中成交量观察)，可使用 \"全天\" 字面量；事件必须有可观察时间锚点，不能凑数。",
   "user_template": {
     "task": "generate_playbook",
     "constraints": {
       "max_events": 8,
       "event_label_max_chars": 60,
-      "language": "zh-Hans"
+      "language": "zh-Hans",
+      "time_hkt_rule": "Must be the event's actual Beijing/BJT clock time. Different markets have different open times — see system prompt for the conversion table. Sort events ascending by Beijing time."
     },
     "judgements": "{{judgements_json}}",
     "evidence": "{{aliased_evidence_json}}"
@@ -24,7 +25,7 @@
           "type": "object",
           "required": ["time_hkt", "label", "detail"],
           "properties": {
-            "time_hkt": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$" },
+            "time_hkt": { "type": "string", "pattern": "^([0-2][0-9]:[0-5][0-9]|全天)$" },
             "label": { "type": "string", "maxLength": 60 },
             "detail": { "type": "string", "maxLength": 120 },
             "related_judgement_ids": {

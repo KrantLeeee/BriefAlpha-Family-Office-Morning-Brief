@@ -48,6 +48,62 @@ def _request_hash(req: LlmRequest) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
+def _reverse_alias_in_tree(
+    node: Any,
+    ctx: AliasContext,
+    *,
+    cited_excerpts_aliased: list[str],
+    skip_keys: frozenset[str] = frozenset({"evidence_id", "cited_evidence_ids"}),
+) -> Any:
+    """Walk a JSON-shaped tree and rewrite every string leaf via `reverse_alias`.
+
+    Skips `evidence_id` / `cited_evidence_ids` — those are loop-up keys that
+    must remain the canonical alias form so downstream artifact builders can
+    cross-reference the evidence pool. Non-string leaves pass through unchanged.
+    """
+    if isinstance(node, str):
+        return reverse_alias(
+            node, ctx, cited_evidence_excerpts_aliased=cited_excerpts_aliased
+        ).text
+    if isinstance(node, dict):
+        return {
+            k: (
+                v
+                if k in skip_keys
+                else _reverse_alias_in_tree(
+                    v, ctx, cited_excerpts_aliased=cited_excerpts_aliased, skip_keys=skip_keys
+                )
+            )
+            for k, v in node.items()
+        }
+    if isinstance(node, list):
+        return [
+            _reverse_alias_in_tree(
+                item, ctx, cited_excerpts_aliased=cited_excerpts_aliased, skip_keys=skip_keys
+            )
+            for item in node
+        ]
+    return node
+
+
+def _scrub_sensitive_in_tree(
+    node: Any,
+    *,
+    dictionary: Any,
+    ctx: AliasContext | None,
+) -> Any:
+    if isinstance(node, str):
+        return scrub_output(node, dictionary=dictionary, ctx=ctx)
+    if isinstance(node, dict):
+        return {
+            k: _scrub_sensitive_in_tree(v, dictionary=dictionary, ctx=ctx)
+            for k, v in node.items()
+        }
+    if isinstance(node, list):
+        return [_scrub_sensitive_in_tree(item, dictionary=dictionary, ctx=ctx) for item in node]
+    return node
+
+
 def _response_hash(resp: LlmResponse) -> str:
     return hashlib.sha256((resp.text or "").encode("utf-8")).hexdigest()
 
@@ -147,7 +203,16 @@ async def call_text_llm(
                             resp.text,
                             dictionary=alias_context.entity_dictionary or _empty_dict(),
                             ctx=alias_context,
-                        )
+                        ),
+                        "structured": (
+                            _scrub_sensitive_in_tree(
+                                resp.structured,
+                                dictionary=alias_context.entity_dictionary or _empty_dict(),
+                                ctx=alias_context,
+                            )
+                            if resp.structured is not None
+                            else None
+                        ),
                     }
                 )
 
@@ -163,14 +228,26 @@ async def call_text_llm(
                 last_resp = resp
                 break
 
-        # Safe reverse alias on any free-text fields (text + structured.answer)
-        if alias_context and resp.text:
-            r = reverse_alias(
-                resp.text,
-                alias_context,
-                cited_evidence_excerpts_aliased=cited_excerpts_aliased or [],
-            )
-            resp = resp.model_copy(update={"text": r.text})
+        # Safe reverse alias — apply to BOTH `resp.text` and the string leaves
+        # of `resp.structured`. The pipeline reads `resp.structured` (not
+        # `resp.text`) for the user-visible artifact (`pipeline/run.py` →
+        # `pipeline/artifact.py`), so skipping the structured tree leaks raw
+        # `E_xxxx` aliases all the way to the UI. Anchoring is shared across
+        # both sides: an alias only de-aliases if it's anchored in a cited
+        # evidence excerpt; LLM-fabricated aliases collapse to `[redacted]`.
+        if alias_context:
+            cited = cited_excerpts_aliased or []
+            update: dict[str, Any] = {}
+            if resp.text:
+                update["text"] = reverse_alias(
+                    resp.text, alias_context, cited_evidence_excerpts_aliased=cited
+                ).text
+            if resp.structured is not None:
+                update["structured"] = _reverse_alias_in_tree(
+                    resp.structured, alias_context, cited_excerpts_aliased=cited
+                )
+            if update:
+                resp = resp.model_copy(update=update)
 
         await _audit_post(
             pre,

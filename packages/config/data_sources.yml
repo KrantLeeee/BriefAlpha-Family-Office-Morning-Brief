@@ -22,7 +22,7 @@ official:
 sec:
   # PRD §6.4 / 4.4b: SEC EDGAR fair-use policy mandates contact email in UA.
   # Process startup MUST fail if this is missing.
-  user_agent: "BriefAlpha demo <ops@example.com>"
+  user_agent: "BriefAlpha/0.1 krantlee3@gmail.com"
 
 hkex:
   base_url: "https://www.hkexnews.hk"

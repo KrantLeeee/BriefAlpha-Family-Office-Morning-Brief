@@ -22,6 +22,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from briefalpha_api.anonymization import (
@@ -33,6 +34,7 @@ from briefalpha_api.anonymization.sensitive_entity_dictionary import (
     build_sensitive_entity_dictionary,
 )
 from briefalpha_api.audit.source_health_aggregator import aggregate_source_health
+from briefalpha_api.db.models import Evidence
 from briefalpha_api.db.session import SessionLocal
 from briefalpha_api.fixtures.brief import get_demo_source_health
 from briefalpha_api.ingestion.runner import run_ingestion
@@ -43,6 +45,7 @@ from briefalpha_api.pipeline.artifact import build_brief_artifact
 from briefalpha_api.portfolio.models import PortfolioPosition
 from briefalpha_api.portfolio.repo import load_positions, load_watchlist
 from briefalpha_api.portfolio.universe import build_universe
+from briefalpha_api.search.fts import index_evidence
 
 log = logging.getLogger("briefalpha.pipeline")
 
@@ -333,6 +336,9 @@ def _evidence_dict(ev: stages.Evidence) -> dict[str, Any]:
         "asset_class": ev.asset_class,
         "exposure_bucket": ev.exposure_bucket,
         "published_at": ev.published_at.isoformat() if ev.published_at else None,
+        "fetched_at": ev.fetched_at.isoformat() if ev.fetched_at else None,
+        "quote_span": ev.quote_span,
+        "source_reliability": ev.source_reliability,
         "base_score": ev.base_score,
         "final_impact_score": ev.final_impact_score,
         "score_breakdown": ev.score_breakdown,
@@ -340,6 +346,7 @@ def _evidence_dict(ev: stages.Evidence) -> dict[str, Any]:
         "conflict": ev.conflict,
         "requires_review": ev.requires_review,
         "supplementary_sources": ev.supplementary_sources,
+        "raw_source_url": ev.raw_source_url,
     }
 
 
@@ -376,6 +383,7 @@ async def run_full_brief(
     pipeline_output = await run_pipeline(
         brief_id=brief_id, positions=positions, watchlist=watchlist
     )
+    await _persist_evidence_pool(brief_id, pipeline_output.get("evidence_pool_full", []))
 
     # Quotes — best effort. yfinance is rate-limited; failures yield empty
     # dict and the artifact builder falls back to "0.0%" / "flat" trend.
@@ -404,6 +412,75 @@ async def run_full_brief(
         quotes=quotes,
     )
     return artifact
+
+
+async def _persist_evidence_pool(brief_id: str, evidence_pool: list[dict[str, Any]]) -> None:
+    """Persist the generated evidence pool for QA and the evidence trail drawer.
+
+    The brief artifact is cached separately for fast rendering, but QA and
+    `/api/evidence/trail` intentionally read SQLite/FTS. Without this bridge,
+    the UI can say "96 条原文" while the drawer and QA see an empty database.
+    """
+    async with SessionLocal() as session:
+        await session.execute(delete(Evidence).where(Evidence.brief_id == brief_id))
+        await session.execute(
+            text("DELETE FROM evidence_fts WHERE brief_id = :brief_id"),
+            {"brief_id": brief_id},
+        )
+        for ev in evidence_pool:
+            published_at = _parse_iso_datetime(ev.get("published_at"))
+            fetched_at = _parse_iso_datetime(ev.get("fetched_at")) or datetime.now(
+                timezone.utc
+            )
+            score_breakdown = dict(ev.get("score_breakdown") or {})
+            if ev.get("source_name"):
+                score_breakdown["source_name"] = ev.get("source_name")
+            row = Evidence(
+                evidence_id=ev["evidence_id"],
+                brief_id=brief_id,
+                source_tier=ev.get("source_tier") or "news",
+                source_reliability=float(ev.get("source_reliability") or 0.5),
+                title=ev.get("title") or "",
+                excerpt=ev.get("excerpt") or "",
+                quote_span=ev.get("quote_span"),
+                detected_tickers=list(ev.get("detected_tickers") or []),
+                chunk_type=ev.get("chunk_type"),
+                asset_class=ev.get("asset_class"),
+                exposure_bucket=ev.get("exposure_bucket"),
+                published_at=published_at,
+                fetched_at=fetched_at,
+                base_score=float(ev.get("base_score") or 0.0),
+                final_impact_score=float(ev.get("final_impact_score") or 0.0),
+                score_breakdown=score_breakdown,
+                selected_for_llm=bool(ev.get("selected_for_llm")),
+                conflict=bool(ev.get("conflict")),
+                requires_review=bool(ev.get("requires_review")),
+                supplementary_sources=list(ev.get("supplementary_sources") or []),
+                raw_source_url=ev.get("raw_source_url"),
+            )
+            session.add(row)
+            await index_evidence(
+                session,
+                evidence_id=row.evidence_id,
+                brief_id=brief_id,
+                title=row.title,
+                excerpt=row.excerpt,
+                detected_tickers=row.detected_tickers,
+                chunk_type=row.chunk_type,
+                source_tier=row.source_tier,
+            )
+        await session.commit()
+
+
+def _parse_iso_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 async def _fetch_quotes(tickers: list[str]) -> dict[str, dict[str, Any]]:

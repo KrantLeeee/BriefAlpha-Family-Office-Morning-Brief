@@ -11,6 +11,8 @@ interface TrailRow {
   timestamp: string;
   label: string;
   source_tier?: string;
+  source_link?: string;
+  link_kind?: string;
 }
 
 interface TrailResponse {
@@ -147,7 +149,20 @@ export function EvidenceTrailDrawer() {
           {visible.map((row, idx) => (
             <li key={idx} className="flex flex-col gap-1 py-3">
               <span className="font-mono text-[11px] text-ink-500">{row.timestamp}</span>
-              <span className="font-sans text-[13px] text-ink-700">{row.label}</span>
+              {row.link_kind === "external" && row.source_link ? (
+                <a
+                  href={row.source_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="break-words font-sans text-[13px] text-orange-600 hover:underline"
+                >
+                  {formatLongDecimals(row.label)} ↗
+                </a>
+              ) : (
+                <span className="break-words font-sans text-[13px] text-ink-700">
+                  {formatLongDecimals(row.label)}
+                </span>
+              )}
               {row.source_tier && (
                 <span className="font-mono text-[10px] text-ink-400">{row.source_tier}</span>
               )}
@@ -157,6 +172,13 @@ export function EvidenceTrailDrawer() {
       </div>
     </div>
   );
+}
+
+function formatLongDecimals(value: string): string {
+  return value.replace(/([+-]?\d+\.\d{3,})/g, (match) => {
+    const n = Number.parseFloat(match);
+    return Number.isFinite(n) ? n.toFixed(2) : match;
+  });
 }
 
 function FilterChip({

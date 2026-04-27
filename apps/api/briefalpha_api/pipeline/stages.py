@@ -6,6 +6,7 @@ runner can compose them and unit tests can assert on intermediate state.
 from __future__ import annotations
 
 import hashlib
+import html
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -66,8 +67,8 @@ def normalize(brief_id: str, raw_items: Iterable[RawItem]) -> list[Evidence]:
                 source_tier=raw.source_tier,
                 source_name=raw.source_name,
                 source_reliability=_reliability_for(raw.source_tier),
-                title=raw.title,
-                excerpt=raw.excerpt,
+                title=_clean_text(raw.title),
+                excerpt=_clean_text(raw.excerpt),
                 quote_span=raw.quote_span,
                 detected_tickers=list(raw.detected_tickers),
                 chunk_type=None,
@@ -79,6 +80,17 @@ def normalize(brief_id: str, raw_items: Iterable[RawItem]) -> list[Evidence]:
             )
         )
     return out
+
+
+def _clean_text(value: str) -> str:
+    """Normalize feed text before it reaches the UI, FTS, or LLM prompts."""
+    text = html.unescape(value or "")
+    text = re.sub(r"<a\b[^>]*(?:>|$)", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"</a>|<font\b[^>]*(?:>|$)|</font>", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"https?://\S+", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
 
 
 def _reliability_for(tier: str) -> float:

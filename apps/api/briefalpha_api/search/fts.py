@@ -12,10 +12,11 @@ before passing to LLM.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 Scope = Literal["judgement", "evidence", "global"]
@@ -108,6 +109,14 @@ async def search(
     params["limit"] = limit
 
     rows = (await session.execute(text(base), params)).mappings().all()
+    if not rows:
+        rows = await _fallback_like_search(
+            session,
+            brief_id=brief_id,
+            query=query,
+            evidence_id=evidence_id if scope == "evidence" else None,
+            limit=limit,
+        )
     return [
         SearchHit(
             evidence_id=row["evidence_id"],
@@ -121,3 +130,69 @@ async def search(
         )
         for row in rows
     ]
+
+
+async def _fallback_like_search(
+    session: AsyncSession,
+    *,
+    brief_id: str,
+    query: str,
+    evidence_id: str | None,
+    limit: int,
+):
+    """Fallback for ticker typos and natural-language questions.
+
+    FTS5 is exact-token oriented. A user typing "APPL" for "AAPL", or asking a
+    Chinese sentence that contains only one useful ticker token, should still
+    retrieve the obvious evidence instead of returning a false "insufficient".
+    """
+    tokens = [t for t in re.findall(r"[A-Za-z0-9.\-]+|[\u4e00-\u9fff]+", query) if len(t) > 1]
+    if not tokens:
+        return []
+
+    sql = """
+        SELECT evidence_id, brief_id, title, excerpt, detected_tickers,
+               chunk_type, source_tier, 0.0 AS rank
+        FROM evidence_fts
+        WHERE brief_id = :brief_id
+    """
+    params: dict[str, object] = {"brief_id": brief_id}
+    if evidence_id:
+        sql += " AND evidence_id = :evidence_id"
+        params["evidence_id"] = evidence_id
+    candidates = (await session.execute(text(sql), params)).mappings().all()
+
+    scored = []
+    upper_tokens = [t.upper() for t in tokens if re.search(r"[A-Za-z]", t)]
+    for row in candidates:
+        haystack = " ".join(
+            str(row.get(k) or "") for k in ("title", "excerpt", "detected_tickers", "source_tier")
+        )
+        haystack_upper = haystack.upper()
+        score = 0
+        for token in tokens:
+            if token.lower() in haystack.lower():
+                score += 3
+        tickers = re.findall(r"\b[A-Z0-9]{1,5}(?:\.[A-Z]{1,3})?\b", haystack_upper)
+        for token in upper_tokens:
+            if any(_edit_distance_at_most_one(token, ticker) for ticker in tickers):
+                score += 2
+        if score > 0:
+            scored.append((score, row))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [row for _score, row in scored[:limit]]
+
+
+def _edit_distance_at_most_one(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    if abs(len(left) - len(right)) > 1:
+        return False
+    if len(left) == len(right):
+        return sum(a != b for a, b in zip(left, right, strict=True)) <= 1
+    short, long = (left, right) if len(left) < len(right) else (right, left)
+    for idx in range(len(long)):
+        if short == long[:idx] + long[idx + 1 :]:
+            return True
+    return False

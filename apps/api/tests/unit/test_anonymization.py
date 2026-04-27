@@ -130,3 +130,59 @@ def test_alias_with_anchor_is_restored() -> None:
     )
     assert "NVDA" in out.text
     assert "[redacted]" not in out.text
+
+
+def test_reverse_alias_in_tree_walks_structured_response() -> None:
+    """The wrapper-level helper must reach every string leaf inside the
+    structured LLM response (judgements, playbook_events, reasoning_chain)
+    while leaving identifier-style keys (evidence_id, cited_evidence_ids)
+    untouched — those get cross-referenced in the artifact builder and
+    must remain in their canonical alias form."""
+    from briefalpha_api.llm.wrapper import _reverse_alias_in_tree
+
+    ctx = _ctx(["NVDA", "0700.HK"])
+    nvda = ctx.alias_for("NVDA")
+    hk = ctx.alias_for("0700.HK")
+    assert nvda and hk
+    cited = [f"{nvda} reports earnings; {hk} announces buyback."]
+
+    structured = {
+        "playbook_events": [
+            {
+                "time_hkt": "21:30",
+                "label": "美股开盘关注",
+                "detail": f"关注{nvda}和{hk}的开盘",
+                "related_judgement_ids": [],
+            }
+        ],
+        "judgements": [
+            {
+                "rank": 1,
+                "title": f"{nvda}回购信号",
+                "evidence_id": "j1",
+                "cited_evidence_ids": ["e1", "e2"],
+                "reasoning_chain": {"step_1": f"{nvda} 营收上调"},
+            }
+        ],
+    }
+    out = _reverse_alias_in_tree(structured, ctx, cited_excerpts_aliased=cited)
+    assert out["playbook_events"][0]["detail"] == "关注NVDA和0700.HK的开盘"
+    assert out["judgements"][0]["title"] == "NVDA回购信号"
+    assert out["judgements"][0]["reasoning_chain"]["step_1"] == "NVDA 营收上调"
+    # Identifier keys preserved verbatim — artifact builder relies on these.
+    assert out["judgements"][0]["evidence_id"] == "j1"
+    assert out["judgements"][0]["cited_evidence_ids"] == ["e1", "e2"]
+
+
+def test_reverse_alias_in_tree_redacts_unanchored_aliases() -> None:
+    """An LLM-fabricated alias inside the structured payload (no anchor in
+    cited excerpts) must collapse to [redacted], same as for free text — so
+    hallucinated tickers can't slip into the UI via structured fields."""
+    from briefalpha_api.llm.wrapper import _reverse_alias_in_tree
+
+    ctx = _ctx(["NVDA"])
+    fabricated = "E_dead"  # Never issued by ctx.
+    structured = {"judgements": [{"title": f"{fabricated} 回购"}]}
+    out = _reverse_alias_in_tree(structured, ctx, cited_excerpts_aliased=[])
+    assert fabricated not in out["judgements"][0]["title"]
+    assert "[redacted]" in out["judgements"][0]["title"]

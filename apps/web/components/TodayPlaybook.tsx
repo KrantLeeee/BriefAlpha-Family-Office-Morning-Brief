@@ -44,7 +44,11 @@ export function TodayPlaybook({
       return next;
     });
 
-  const next = events.find((e) => e.is_next) ?? events[0];
+  const sortedEvents = useMemo(
+    () => [...events].sort((a, b) => playbookSortValue(a.time_hkt) - playbookSortValue(b.time_hkt)),
+    [events]
+  );
+  const next = sortedEvents[0];
 
   return (
     <section
@@ -59,14 +63,21 @@ export function TodayPlaybook({
           </span>
           {next && (
             <span className="font-mono text-[11px] font-bold text-ink-900">
-              下一事件 {next.time_hkt} HKT · {next.relative_time_hkt}
+              下一事件 {next.time_hkt} BJT · {next.relative_time_hkt}
             </span>
           )}
         </div>
 
+        {sortedEvents.length === 0 ? (
+          <div className="mt-3 border-y border-line py-6">
+            <p className="font-sans text-[13px] leading-[1.55] text-ink-500">
+              今日暂未生成观察事件。通常是 Stage C 未返回可校验事件，或当前 evidence 不足以支撑明确时间点；可先查看 AI 研判和证据轨迹。
+            </p>
+          </div>
+        ) : (
         <ol className="mt-3 flex flex-col border-y border-line py-6">
-          {events.map((event, idx) => {
-            const isLast = idx === events.length - 1;
+          {sortedEvents.map((event, idx) => {
+            const isLast = idx === sortedEvents.length - 1;
             const isOpen = expanded.has(idx);
             const relatedIds = event.related_evidence_ids ?? [];
             const related = relatedIds
@@ -81,12 +92,12 @@ export function TodayPlaybook({
               >
                 <div className="flex flex-col">
                   <span className="font-mono text-[12px] text-ink-900">
-                    {event.time_hkt} HKT
+                    {event.time_hkt} BJT
                   </span>
                   <span
                     className={[
                       "font-mono text-[10px]",
-                      event.is_next ? "text-orange-600" : "text-ink-500",
+                      idx === 0 ? "text-orange-600" : "text-ink-500",
                     ].join(" ")}
                   >
                     {event.relative_time_hkt}
@@ -143,9 +154,17 @@ export function TodayPlaybook({
             );
           })}
         </ol>
+        )}
       </div>
     </section>
   );
+}
+
+function playbookSortValue(timeLabel: string): number {
+  if (timeLabel === "全天") return -1;
+  const match = /^([0-2]\d):([0-5]\d)$/.exec(timeLabel);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  return Number(match[1]) * 60 + Number(match[2]);
 }
 
 function Chevron({ open }: { open: boolean }) {

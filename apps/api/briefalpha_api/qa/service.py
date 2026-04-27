@@ -15,6 +15,7 @@ Sequence:
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -128,6 +129,7 @@ async def run_qa(
         brief_id=brief_id,
         query=_search_query_from(question),
         scope=scope,
+        judgement_id=scope_target_id if scope == "judgement" else None,
         evidence_id=scope_target_id if scope == "evidence" else None,
         limit=SEARCH_LIMIT,
     )
@@ -173,7 +175,10 @@ async def run_qa(
 
     # Step 5: build prompt + call wrapper with accuracy validator.
     template_scope = "qa_global" if scope == "global" else "qa_local"
-    history = await _load_qa_history(brief_id, scope, scope_target_id)
+    history = _alias_qa_history(
+        await _load_qa_history(brief_id, scope, scope_target_id),
+        ctx=ctx,
+    )
     extra_payload: dict[str, Any] = {
         "scope": scope,
         "scope_target_id": scope_target_id,
@@ -228,8 +233,12 @@ async def run_qa(
             answer_text=answer_only,
             quote_span_aliased=None,
             sensitive_dict=sensitive_dict,
-            pool_metadata=pool_metadata,
-            brief_freeze_at_hkt=brief_freeze_at_hkt,
+            # QA answers cite the already-selected today's brief evidence.
+            # Freshness is enforced when the brief is generated; reapplying
+            # time-window rules here makes legitimate follow-ups fail just
+            # because an older-but-cited article was retrieved.
+            pool_metadata=None,
+            brief_freeze_at_hkt=None,
         )
         return result.ok, result.reason
 
@@ -244,15 +253,15 @@ async def run_qa(
     )
 
     structured = resp.structured or {}
-    answer_text = resp.text or structured.get("answer", "")
+    answer_text = _clean_answer_text(structured.get("answer") or resp.text or "")
     cited = list(structured.get("cited_evidence_ids", []))
     insufficient = bool(structured.get("insufficient_evidence"))
 
     if resp.provider == "conservative":
         return QaServiceResult(
             answer=(
-                "QA 当前不可用：LLM provider 未配置或连续验证失败。"
-                "请检查 ANTHROPIC_API_KEY / OPENAI_API_KEY 是否已设置。"
+                "QA 当前不可用：LLM provider 调用失败，或回答未通过引用/数字/敏感信息校验。"
+                "请查看后端 audit_log 的 qa_* failure_state 以定位具体原因。"
             ),
             insufficient_evidence=False,
             validation_passed=False,
@@ -306,11 +315,18 @@ def _search_query_from(question: str) -> str:
     return cleaned.strip()
 
 
+def _clean_answer_text(answer: str) -> str:
+    cleaned = re.sub(r"[（(]\s*evidence_id\s*:\s*[^）)]+[）)]", "", answer, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
 def _label_for_evidence(ev_rows: list[Evidence], evidence_id: str) -> str:
     for ev in ev_rows:
         if ev.evidence_id == evidence_id:
             pub = ev.published_at.strftime("%m-%d %H:%M") if ev.published_at else ""
-            return " · ".join(filter(None, [ev.source_name if hasattr(ev, "source_name") else ev.source_tier, pub]))
+            source_name = (ev.score_breakdown or {}).get("source_name") or ev.source_tier
+            return " · ".join(filter(None, [source_name, pub]))
     return evidence_id
 
 
@@ -322,6 +338,15 @@ async def _load_qa_history(
     if not isinstance(history, list):
         return []
     return history[-QA_HISTORY_TURNS:]
+
+
+def _alias_qa_history(history: list[dict[str, str]], *, ctx: Any) -> list[dict[str, str]]:
+    aliased: list[dict[str, str]] = []
+    for turn in history:
+        q, _ = replace_in_text(str(turn.get("q", "")), ctx, field="qa_history_question")
+        a, _ = replace_in_text(str(turn.get("a", "")), ctx, field="qa_history_answer")
+        aliased.append({"q": q, "a": a})
+    return aliased
 
 
 async def _push_qa_history(

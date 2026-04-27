@@ -3,26 +3,29 @@
 import type { PortfolioSnapshot, PortfolioTile } from "@/lib/types";
 import { TrendIcon } from "./TrendIcon";
 
-const COLOR_MAP: Record<string, string> = {
-  "treemap.nvda": "bg-treemap-nvda text-canvas",
-  "treemap.tencent": "bg-treemap-tencent text-canvas",
-  "treemap.aapl": "bg-treemap-aapl text-canvas",
-  "treemap.msft": "bg-treemap-msft text-ink-900",
-  "treemap.tlt": "bg-treemap-tlt text-canvas",
-  "treemap.baba": "bg-treemap-baba text-ink-900",
-  "treemap.gld": "bg-treemap-gld text-ink-900",
-  "treemap.cash": "bg-treemap-cash text-ink-700",
-  "treemap.tsla": "bg-treemap-tsla text-canvas",
-  "treemap.mtn": "bg-treemap-mtn text-ink-900",
-};
-
 const ROW0_HEIGHT = 152;
 const ROW1_HEIGHT = 126;
 const TREE_TOTAL_WIDTH = 640;
 const TREE_TOTAL_HEIGHT = ROW0_HEIGHT + ROW1_HEIGHT;
 
-function tileColorClass(token: string): string {
-  return COLOR_MAP[token] ?? "bg-ink-300 text-canvas";
+function tileColorClass(tile: PortfolioTile): string {
+  const magnitude = Math.abs(parsePct(tile.change_pct));
+  if (tile.trend === "up") {
+    if (magnitude >= 2.5) return "bg-[#14532D] text-white";
+    if (magnitude >= 1) return "bg-[#15803D] text-white";
+    return "bg-treemap-mtn text-ink-900";
+  }
+  if (tile.trend === "down") {
+    if (magnitude >= 2.5) return "bg-treemap-nvda text-white";
+    if (magnitude >= 1) return "bg-treemap-aapl text-ink-900";
+    return "bg-treemap-msft text-ink-900";
+  }
+  return "bg-treemap-cash text-ink-900";
+}
+
+function parsePct(value: string): number {
+  const n = Number.parseFloat(value.replace("%", ""));
+  return Number.isFinite(n) ? n : 0;
 }
 
 function tileLabel(t: PortfolioTile): string {
@@ -57,7 +60,7 @@ function Tile({ tile }: { tile: PortfolioTile }) {
     <div
       role="img"
       aria-label={`${tileLabel(tile)} 占比 ${tile.weight_pct}，隔夜 ${tile.change_pct}`}
-      className={`${tileColorClass(tile.color)} ${radius} absolute flex flex-col justify-end p-[10px]`}
+      className={`${tileColorClass(tile)} ${radius} absolute flex flex-col justify-end p-[10px]`}
       style={{
         left: `${tile.col_start}px`,
         top: `${top}px`,
@@ -70,7 +73,7 @@ function Tile({ tile }: { tile: PortfolioTile }) {
         <span className="opacity-80">{tile.weight_pct}</span>
       </div>
       <div className="mt-[2px] flex items-baseline gap-[4px] font-mono text-[10px]">
-        <TrendIcon trend={tile.trend} className="text-[10px]" />
+        <TrendIcon trend={tile.trend} className="!text-current text-[10px]" />
         <span>{tile.change_pct}</span>
       </div>
     </div>

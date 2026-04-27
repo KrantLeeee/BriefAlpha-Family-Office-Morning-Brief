@@ -123,6 +123,9 @@ export interface PlaybookEvent {
 export interface DeepReadEvidenceTrailRow {
   timestamp: string;
   label: string;
+  source_link?: string;
+  link_kind?: LinkKind;
+  source_tier?: string;
 }
 
 export interface SourceHealthRow {

@@ -52,11 +52,21 @@ def classify_link_kind(url: str | None) -> str:
         return "unavailable"
     if url.startswith("briefalpha://demo/"):
         return "internal_demo"
-    if url.startswith(("research://", "yfinance://")):
+    if url.startswith("research://"):
         return "internal_research"
     if url.startswith(("http://", "https://")):
         return "external"
     return "unavailable"
+
+
+def public_source_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    if url.startswith("yfinance://"):
+        ticker = url.removeprefix("yfinance://").strip()
+        if ticker:
+            return f"https://finance.yahoo.com/quote/{ticker}"
+    return url
 
 
 def build_brief_artifact(
@@ -101,6 +111,7 @@ def build_brief_artifact(
     )
     playbook_events = _build_playbook_events(
         stage_c=pipeline_output.get("stage_c"),
+        stage_b=pipeline_output.get("stage_b"),
     )
     deep_read = _build_deep_read(selected=selected, full=pool)
     degraded_sources = [
@@ -110,6 +121,8 @@ def build_brief_artifact(
     ]
     footer_left = _footer_left(delivered_label, source_health)
 
+    macro_pulse: list[dict[str, Any]] = []
+    macro_collapsed = _build_macro_collapsed(macro_pulse)
     return {
         "brief_id": pipeline_output["brief_id"],
         "brief_date_hkt": pipeline_output.get("brief_date_hkt", pipeline_output["brief_id"]),
@@ -126,14 +139,25 @@ def build_brief_artifact(
         "judgements": judgements,
         "playbook_events": playbook_events,
         "deep_read": deep_read,
-        "macro_pulse_collapsed": {"label": "宏观脉搏 · 8 项指标", "expand_label": "展开 8 项指标"},
+        "macro_pulse_collapsed": macro_collapsed,
         # The TS contract (`apps/web/lib/types.ts:Brief.macro_pulse`) requires this
-        # field. The indicator pipeline isn't implemented yet, so we emit an empty
-        # list — the frontend renders the collapsed shell without crashing
-        # `<MacroPulseExpanded>` on `items.map(...)`.
-        "macro_pulse": [],
+        # field. The indicator pipeline isn't implemented yet, so we emit an
+        # empty list and the collapsed label says so honestly (see
+        # `_build_macro_collapsed`).
+        "macro_pulse": macro_pulse,
         "footer": {"left": footer_left, "right": "仅供信息支持，不构成投资建议。"},
     }
+
+
+def _build_macro_collapsed(macro_pulse: list[dict[str, Any]]) -> dict[str, str]:
+    """Honest collapsed-row label. Earlier the label hard-coded "8 项指标"
+    while the row list was always empty, which read as a fixture lie when
+    the user expanded it. With no indicators we say so; with N indicators
+    we count the actual N."""
+    n = len(macro_pulse)
+    if n == 0:
+        return {"label": "宏观脉搏 · 暂未接入", "expand_label": "—"}
+    return {"label": f"宏观脉搏 · {n} 项指标", "expand_label": f"展开 {n} 项指标"}
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +297,7 @@ def _build_judgements(
                 continue
             sup = ev.get("supplementary_sources") or []
             for s in sup[:1]:
-                url = s.get("url") or ""
+                url = public_source_url(s.get("url")) or ""
                 supplementary.append(
                     {
                         "evidence_id": ev["evidence_id"],
@@ -355,7 +379,7 @@ def _build_evidence_card(ev: dict[str, Any], idx: int) -> dict[str, Any]:
     source_name = ev.get("source_name", "")
     pub = ev.get("published_at") or ""
     pub_label = pub[:16] if isinstance(pub, str) else ""
-    url = ev.get("raw_source_url") or ev.get("source_link") or "#"
+    url = public_source_url(ev.get("raw_source_url") or ev.get("source_link")) or "#"
     return {
         "evidence_id": ev["evidence_id"],
         "index_label": label,
@@ -373,23 +397,58 @@ def _build_evidence_card(ev: dict[str, Any], idx: int) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _build_playbook_events(*, stage_c: dict[str, Any] | None) -> list[dict[str, Any]]:
+def _build_playbook_events(
+    *,
+    stage_c: dict[str, Any] | None,
+    stage_b: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     if not stage_c or not stage_c.get("playbook_events"):
         return []
-    events = stage_c["playbook_events"]
+    judgement_evidence: dict[str, list[str]] = {}
+    for raw in (stage_b or {}).get("judgements", []) or []:
+        jid = f"j{raw.get('rank', len(judgement_evidence) + 1)}"
+        judgement_evidence[jid] = list(raw.get("cited_evidence_ids") or [])
+    events = sorted(
+        stage_c["playbook_events"],
+        key=lambda ev: _playbook_sort_key(ev.get("time_hkt", "全天")),
+    )
     out = []
     for idx, ev in enumerate(events):
+        related_judgement_ids = ev.get("related_judgement_ids", [])
+        related_evidence_ids = list(ev.get("related_evidence_ids", []))
+        if not related_evidence_ids:
+            for jid in related_judgement_ids:
+                related_evidence_ids.extend(judgement_evidence.get(jid, []))
         out.append(
             {
                 "time_hkt": ev.get("time_hkt", "00:00"),
                 "relative_time_hkt": ev.get("relative_time_hkt", ""),
                 "label": ev.get("label", ""),
                 "detail": ev.get("detail", ""),
-                "related_judgement_ids": ev.get("related_judgement_ids", []),
+                "related_judgement_ids": related_judgement_ids,
+                "related_evidence_ids": list(dict.fromkeys(related_evidence_ids)),
                 "is_next": idx == 0,
             }
         )
     return out
+
+
+def _playbook_sort_key(time_label: str) -> tuple[int, int]:
+    """Sort same-day Beijing-time event labels from morning to evening.
+
+    The wire field is still named `time_hkt` for compatibility. HKT and BJT
+    are both UTC+8, so the value is already Beijing clock time; the frontend
+    labels it as BJT/北京时间.
+    """
+    if time_label == "全天":
+        return (-1, 0)
+    try:
+        hh, mm = time_label.split(":", 1)
+        hour = max(0, min(23, int(hh)))
+        minute = max(0, min(59, int(mm)))
+        return (hour, minute)
+    except (ValueError, AttributeError):
+        return (99, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -410,6 +469,8 @@ def _build_deep_read(
             {
                 "timestamp": ts,
                 "label": f"{ev.get('source_name', '')} · {ev.get('title', '')[:40]}",
+                "source_link": public_source_url(ev.get("raw_source_url")),
+                "link_kind": classify_link_kind(public_source_url(ev.get("raw_source_url"))),
             }
         )
     return {

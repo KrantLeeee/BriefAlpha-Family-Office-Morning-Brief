@@ -38,7 +38,7 @@ function failureLabel(reason: string | undefined): string {
     case "empty_question":
       return "提示";
     case "llm_unconfigured":
-      return "QA 服务未配置";
+      return "QA 暂不可用";
     case "brief_expired":
       return "Brief 已过期";
     default:
@@ -133,7 +133,7 @@ export function LocalQaInput({ briefId, scope, scopeTargetId, suggestedQuestions
             {response.is_demo_response && <DemoAnswerBadge />}
           </div>
           <p className="whitespace-pre-line font-sans text-[13px] leading-[1.55] text-ink-700">
-            {response.answer}
+            {formatLongDecimals(response.answer)}
           </p>
           {response.citations.length > 0 && (
             <ul className="flex flex-wrap gap-2">
@@ -155,4 +155,11 @@ export function LocalQaInput({ briefId, scope, scopeTargetId, suggestedQuestions
       </span>
     </section>
   );
+}
+
+function formatLongDecimals(value: string): string {
+  return value.replace(/([+-]?\d+\.\d{3,})/g, (match) => {
+    const n = Number.parseFloat(match);
+    return Number.isFinite(n) ? n.toFixed(2) : match;
+  });
 }
