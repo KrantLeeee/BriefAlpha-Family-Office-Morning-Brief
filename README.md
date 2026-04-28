@@ -317,6 +317,8 @@ pnpm --filter @briefalpha/web test:e2e -- --grep "visual"
 
 所以我的取舍标准很明确：**可信度 > 可追溯 > 时效 > 覆盖面 > 观点丰富度**。如果一条信息不能被定位到原文，或者不能解释为什么进入晨报，我宁愿不放进主简报。
 
+![BriefAlpha live morning brief main screen](./docs/images/briefalpha-main-live.png)
+
 
 
 ### 2. 数据源选择
@@ -333,6 +335,8 @@ pnpm --filter @briefalpha/web test:e2e -- --grep "visual"
 我选择“用户上传研报”而不是随机爬公开研报，因为家办真实场景里，研报往往来自他们已有权限的渠道；上传模式更贴近工作流，也更容易控制合规边界。
 
 一句话：**官方源定事实，行情源定市场反应，新闻源定时效，研报源定深度。**
+
+![Research PDF upload parse report](./docs/images/briefalpha-upload-research.png)
 
 
 
@@ -371,6 +375,8 @@ pnpm --filter @briefalpha/web test:e2e -- --grep "visual"
 
 我还加了 source tier floor，避免最后的简报全是行情 tick 或全是新闻标题。晨报必须像一个投资助理整理过，而不是像搜索结果页。
 
+![Evidence trail with source-tier filters](./docs/images/briefalpha-evidence-trail.png)
+
 
 
 ### 5. 去重和冲突
@@ -382,6 +388,8 @@ pnpm --filter @briefalpha/web test:e2e -- --grep "visual"
 冲突的原则是：**系统可以发现冲突，但不假装裁决冲突。**
 
 比如新闻说上调、公告里没有对应表述，或者两个来源对关键数字说法不一致，我会标成 `requires_review`。这比让 LLM 给一个看似确定的结论更适合高净值客户场景。
+
+![Judgement drawer with reasoning chain, evidence cards, and supplementary sources](./docs/images/briefalpha-judgement-drawer.png)
 
 
 
@@ -416,7 +424,7 @@ curl -s http://localhost:8000/api/brief/today \
 
 用户可以按单条 judgement、单条 evidence 或全局 evidence_pool 追问。系统先召回原文 evidence，再重新脱敏，再让 LLM 回答，并且要求引用 evidence_id。这样追问回答不会脱离当天晨报的证据范围。
 
-<img src="docs/images/briefalpha-qa-drawer.png" alt="Scoped QA input inside the judgement drawer" width="720">
+![Scoped QA input inside the judgement drawer](./docs/images/briefalpha-qa-drawer.png)
 
 
 
