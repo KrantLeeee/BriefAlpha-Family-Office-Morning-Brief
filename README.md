@@ -2,6 +2,8 @@
 
 Family-office morning brief MVP — produces an evidence-grounded, citation-traceable, minimum-disclosure morning brief by 08:30 HKT.
 
+![BriefAlpha hero screen](./docs/images/Hero.png)
+
 > Source of truth for visual design: `docs/Designs/BriefAlpha.pen` (Chinese frames `fFOSV`, `uOtTm`, `I4Qnp`, `Nh2S4`).
 > Source of truth for behavior: `openspec/changes/build-briefalpha-mvp/`.
 
